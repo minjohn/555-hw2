@@ -4,11 +4,16 @@ public class URLInfo {
 	private String hostName;
 	private int portNo;
 	private String filePath;
+	private String url;
+//	private String baseurl;
 	
 	/**
 	 * Constructor called with raw URL as input - parses URL to obtain host name and file path
 	 */
 	public URLInfo(String docURL){
+		
+		url = docURL;
+		
 		if(docURL == null || docURL.equals(""))
 			return;
 		docURL = docURL.trim();
@@ -47,6 +52,8 @@ public class URLInfo {
 		}
 	}
 	
+
+
 	public URLInfo(String hostName, String filePath){
 		this.hostName = hostName;
 		this.filePath = filePath;
@@ -82,5 +89,18 @@ public class URLInfo {
 	public void setFilePath(String fp){
 		filePath = fp;
 	}
+	
+	public String getUrl() {
+		return url;
+	}
+	
+//	public void setBaseUrl(String base){
+//		baseurl = base;
+//	}
+//	
+//	public String getBaseUrl() {
+//		return baseurl;
+//	}
+	
 	
 }

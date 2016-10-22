@@ -11,5 +11,6 @@
 	<classpathentry kind="lib" path="lib/jackson-databind-2.9.0-20161012.002007-91.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="lib" path="lib/je-6.2.31.jar"/>
+	<classpathentry kind="lib" path="/home/cis555/workspace/555-hw2/lib/jsoup-1.9.2.jar"/>
 	<classpathentry kind="output" path="target/classes/"/>
 </classpath>
