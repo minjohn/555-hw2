@@ -49,11 +49,11 @@ public class HTTPResponseParser {
 		String filename = null;
 		String httpVersion = null;
 
-		System.out.println("attempting to readline");
+		//System.out.println("attempting to readline");
 
 		String responseLine = reader.readLine();
 
-		System.out.println("requestline Text: " + responseLine);
+		//System.out.println("requestline Text: " + responseLine);
 
 		if(responseLine == null){
 			System.out.println("received a null request line....");
@@ -116,7 +116,7 @@ public class HTTPResponseParser {
 						multiLine = false;
 					}
 
-//					headers.updateHeader(lastHeader, v ); 
+					//headers.updateHeader(lastHeader, v ); 
 					
 					if(m_headers.containsKey(lastHeader) == true){
 						m_headers.get(lastHeader).add(v);
@@ -145,7 +145,7 @@ public class HTTPResponseParser {
 						// cookies usually have name=value pair and a session token
 						if(header.compareTo("cookie") == 0 ){
 
-							System.out.println("got a cookie header ");
+							//System.out.println("got a cookie header ");
 
 							String [] cookieattrs = value.split(";");
 							String sessionId = null;
@@ -159,17 +159,17 @@ public class HTTPResponseParser {
 								if( nameval[0].trim().toLowerCase().compareTo("session-id") == 0 ){
 									
 									sessionId = nameval[1].trim();
-									System.out.println("session id:" + sessionId);
+									//System.out.println("session id:" + sessionId);
 
 								}else{
 									
 									name = nameval[0];
 									cookieval = nameval[1];
-									System.out.println("COOKIE name:" + name + " value:"+cookieval);
+									//System.out.println("COOKIE name:" + name + " value:"+cookieval);
 
 									//Cookie cookie = new Cookie(name, cookieval);
 
-									System.out.println("Adding COOKIE HEADER: name:"+header+" value:"+value);
+									//System.out.println("Adding COOKIE HEADER: name:"+header+" value:"+value);
 
 									//headers.addCookie(cookie);
 									
@@ -212,9 +212,9 @@ public class HTTPResponseParser {
 
 								int endparen = value.indexOf(')');
 								if(endparen > 0){
-									System.out.println("pos: " + pos);
+									//System.out.println("pos: " + pos);
 									int prev = pos-1;
-									System.out.println("prev: " + prev);
+									//System.out.println("prev: " + prev);
 									if( prev >= 0){ //there is a valid user agent to apply comment to
 										val.set(prev, val.get(prev) + " " + value.substring(0, endparen+1) );
 									}
@@ -257,7 +257,7 @@ public class HTTPResponseParser {
 				}
 
 				nextLine = reader.readLine();
-				System.out.println("Next line: " + nextLine);
+				//System.out.println("Next line: " + nextLine);
 			}
 			else{
 				nextLine = null; // trigger the termination condition
@@ -268,7 +268,7 @@ public class HTTPResponseParser {
 		
 		if(method.compareTo("HEAD") != 0){
 
-			System.out.println("Trying to read post body");
+			//System.out.println("Trying to read post body");
 			
 			if(m_headers.get("content-length") != null){
 				

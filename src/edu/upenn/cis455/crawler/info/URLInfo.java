@@ -5,7 +5,7 @@ public class URLInfo {
 	private int portNo;
 	private String filePath;
 	private String url;
-//	private String baseurl;
+	private String baseurl;
 	
 	/**
 	 * Constructor called with raw URL as input - parses URL to obtain host name and file path
@@ -94,13 +94,22 @@ public class URLInfo {
 		return url;
 	}
 	
-//	public void setBaseUrl(String base){
-//		baseurl = base;
-//	}
-//	
-//	public String getBaseUrl() {
-//		return baseurl;
-//	}
+	public void setBaseUrl(String base){
+		baseurl = base;
+	}
+	
+	public String getBaseUrl() {
+		
+		if( filePath.endsWith(".html") == true ){ // this url was pointing to an .html file not a servlet?
+			
+			int slash = filePath.lastIndexOf("/");
+			String filename = filePath.substring(slash+1);
+			return url.replaceAll(filename, "");
+			
+		}
+		
+		return url;
+	}
 	
 	
 }

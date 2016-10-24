@@ -1,6 +1,7 @@
 package edu.upenn.cis455.crawler;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -15,14 +16,18 @@ public class RobotParser {
 
 	class RobotTuple { 
 		  public final HashMap<String, List<String>> m_headers; 
-		  public final RobotsTxtInfo m_robot; 
-		  public RobotTuple(HashMap<String, List<String>> headers, RobotsTxtInfo robot) { 
-		    this.m_robot = robot; 
+		  
+		  //public final RobotsTxtInfo m_robot; 
+		  public final String m_robotText; 
+		  
+		  //public RobotTuple(HashMap<String, List<String>> headers, RobotsTxtInfo robot) { 
+		  public RobotTuple(HashMap<String, List<String>> headers, String robotText) { 
+		    this.m_robotText = robotText; 
 		    this.m_headers = headers; 
 		  } 
 		  
-		  public RobotsTxtInfo getRobot(){
-			  return m_robot;
+		  public String getRobotText(){
+			  return m_robotText;
 		  }
 		  
 	} 
@@ -31,6 +36,88 @@ public class RobotParser {
 		
 	}
 
+	public RobotsTxtInfo parseRobotString(String text) throws NumberFormatException, IOException{
+
+		String userAgent = "";
+		RobotsTxtInfo robots = new RobotsTxtInfo();
+		
+		InputStream str_stream = new ByteArrayInputStream(text.getBytes());
+		
+		BufferedReader reader = new BufferedReader(new InputStreamReader(str_stream));
+		
+		String nextLine;
+		//System.out.println("Body???");
+
+		while ( (nextLine = reader.readLine()) != null ){
+
+			//System.out.println(nextLine);
+
+			String[] parts = nextLine.split(":");
+
+			if (parts.length < 2){ // no value!, ignore this
+
+			}else{
+
+				String header = parts[0].toLowerCase().trim();
+				String value = parts[1].trim();
+
+				if( header.compareTo("user-agent") == 0  ){ // the current user-agent. 
+					userAgent = value.trim();
+					System.out.println("Got User agent: " + userAgent);
+					robots.addUserAgent(userAgent);
+				} else if ( header.compareTo("disallow")  == 0 ){
+
+					if( userAgent.compareTo("") == 0 ){
+						// no userAgent to associate this header to.
+
+					}else{
+						System.out.println("Adding Disallow " + value);
+						robots.addDisallowedLink(userAgent, value);
+					}
+
+				} else if ( header.compareTo("allow") == 0 ){
+
+					if( userAgent.compareTo("") == 0 ){
+						// no userAgent to associate this header to.
+
+					}else{
+						System.out.println("Adding Allow " + value);
+						robots.addAllowedLink(userAgent, value);
+					}
+
+				} else if ( header.compareTo("crawl-delay")  == 0){
+
+					if( userAgent.compareTo("") == 0 ){
+						// no userAgent to associate this header to.
+
+					}else{
+						System.out.println("Adding crawl delay " + value);
+						robots.addCrawlDelay(userAgent, Integer.valueOf(value));
+					}
+				}
+			}
+		}
+
+
+		return robots;
+		
+	}
+	
+	
+	public String parseRobotResponseSSL(InputStream in) throws IOException {
+		
+		String nextLine;
+		BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+		StringBuffer robot_text = new StringBuffer();
+		
+		while ( (nextLine = reader.readLine()) != null ){
+			robot_text.append(nextLine).append("\n");
+		}
+		
+		return robot_text.toString();
+	}
+	
+	
 	public RobotTuple parseRobotResponse(InputStream in) throws IOException {
 
 		HashMap<String, List<String>>m_headers = new HashMap<String,List<String>>();
@@ -40,11 +127,11 @@ public class RobotParser {
 		String filename = null;
 		String httpVersion = null;
 
-		System.out.println("attempting to readline");
+		//System.out.println("attempting to readline");
 
 		String responseLine = reader.readLine();
 
-		System.out.println("requestline Text: " + responseLine);
+		//System.out.println("requestline Text: " + responseLine);
 
 		String[] responseParts = responseLine.split("\\s+");
 
@@ -132,7 +219,7 @@ public class RobotParser {
 							// cookies usually have name=value pair and a session token
 							if(header.compareTo("cookie") == 0 ){
 
-								System.out.println("got a cookie header ");
+								//System.out.println("got a cookie header ");
 
 								String [] cookieattrs = value.split(";");
 								String sessionId = null;
@@ -146,17 +233,17 @@ public class RobotParser {
 									if( nameval[0].trim().toLowerCase().compareTo("session-id") == 0 ){
 
 										sessionId = nameval[1].trim();
-										System.out.println("session id:" + sessionId);
+										//System.out.println("session id:" + sessionId);
 
 									}else{
 
 										name = nameval[0];
 										cookieval = nameval[1];
-										System.out.println("COOKIE name:" + name + " value:"+cookieval);
+										//System.out.println("COOKIE name:" + name + " value:"+cookieval);
 
 										//Cookie cookie = new Cookie(name, cookieval);
 
-										System.out.println("Adding COOKIE HEADER: name:"+header+" value:"+value);
+										//System.out.println("Adding COOKIE HEADER: name:"+header+" value:"+value);
 
 										//headers.addCookie(cookie);
 
@@ -199,9 +286,9 @@ public class RobotParser {
 
 									int endparen = value.indexOf(')');
 									if(endparen > 0){
-										System.out.println("pos: " + pos);
+										//System.out.println("pos: " + pos);
 										int prev = pos-1;
-										System.out.println("prev: " + prev);
+										//System.out.println("prev: " + prev);
 										if( prev >= 0){ //there is a valid user agent to apply comment to
 											val.set(prev, val.get(prev) + " " + value.substring(0, endparen+1) );
 										}
@@ -253,68 +340,73 @@ public class RobotParser {
 
 
 			String userAgent = "";
-			RobotsTxtInfo robots = new RobotsTxtInfo();
+			//RobotsTxtInfo robots = new RobotsTxtInfo();
 
-			//			System.out.println("Body???");
-
+			//System.out.println("Body???");
+			StringBuffer robot_text = new StringBuffer();
 			while ( (nextLine = reader.readLine()) != null ){
-
-//				System.out.println(nextLine);
-
-				String[] parts = nextLine.split(":");
-
-				if (parts.length < 2){ // no value!, ignore this
-
-				}else{
-
-					String header = parts[0].toLowerCase().trim();
-					String value = parts[1].trim();
-
-					if( header.compareTo("user-agent") == 0  ){ // the current user-agent. 
-						userAgent = value.trim();
-//						System.out.println("Got User agent");
-						robots.addUserAgent(userAgent);
-					} else if ( header.compareTo("disallow")  == 0 ){
-
-						if( userAgent.compareTo("") == 0 ){
-							// no userAgent to associate this header to.
-							
-						}else{
-//							System.out.println("Adding Disallow " + value);
-							robots.addDisallowedLink(userAgent, value);
-						}
-
-					} else if ( header.compareTo("allow") == 0 ){
-
-						if( userAgent.compareTo("") == 0 ){
-							// no userAgent to associate this header to.
-
-						}else{
-//							System.out.println("Adding Allow " + value);
-							robots.addAllowedLink(userAgent, value);
-						}
-
-					} else if ( header.compareTo("crawl-delay")  == 0){
-
-						if( userAgent.compareTo("") == 0 ){
-							// no userAgent to associate this header to.
-
-						}else{
-//							System.out.println("Adding crawl delay " + value);
-							robots.addCrawlDelay(userAgent, Integer.valueOf(value));
-						}
-					}
-				}
+				robot_text.append(nextLine).append("\n");
 			}
 			
+			//System.out.println(robot_text.toString());
+			
+			//RobotsTxtInfo robots = new RobotsTxtInfo();
+//			while ( (nextLine = reader.readLine()) != null ){
+//
+//				//System.out.println(nextLine);
+//
+//				String[] parts = nextLine.split(":");
+//
+//				if (parts.length < 2){ // no value!, ignore this
+//
+//				}else{
+//
+//					String header = parts[0].toLowerCase().trim();
+//					String value = parts[1].trim();
+//
+//					if( header.compareTo("user-agent") == 0  ){ // the current user-agent. 
+//						userAgent = value.trim();
+//						//System.out.println("Got User agent");
+//						robots.addUserAgent(userAgent);
+//					} else if ( header.compareTo("disallow")  == 0 ){
+//
+//						if( userAgent.compareTo("") == 0 ){
+//							// no userAgent to associate this header to.
+//							
+//						}else{
+//							//System.out.println("Adding Disallow " + value);
+//							robots.addDisallowedLink(userAgent, value);
+//						}
+//
+//					} else if ( header.compareTo("allow") == 0 ){
+//
+//						if( userAgent.compareTo("") == 0 ){
+//							// no userAgent to associate this header to.
+//
+//						}else{
+//							//System.out.println("Adding Allow " + value);
+//							robots.addAllowedLink(userAgent, value);
+//						}
+//
+//					} else if ( header.compareTo("crawl-delay")  == 0){
+//
+//						if( userAgent.compareTo("") == 0 ){
+//							// no userAgent to associate this header to.
+//
+//						}else{
+//							//System.out.println("Adding crawl delay " + value);
+//							robots.addCrawlDelay(userAgent, Integer.valueOf(value));
+//						}
+//					}
+//				}
+//			}
 //			System.out.println("printing...");
 //			robots.print();
 //			System.out.println("delay: " + String.valueOf(robots.getCrawlDelay("crawltest.cis.upenn.edu")));
 //			System.out.println("Disallowed: ");
 //			assert robots != null;
 
-			RobotTuple tuple = new RobotTuple(m_headers, robots);
-			
+			RobotTuple tuple = new RobotTuple(m_headers, robot_text.toString());
 			
 			return tuple;
 

@@ -18,13 +18,24 @@
     
    <servlet-mapping>
      <servlet-name>xpath</servlet-name>
-     <url-pattern>/xpath</url-pattern>
+     <url-pattern>/register.jsp/</url-pattern>
    </servlet-mapping>  
+    
+   <servlet-mapping>
+     <servlet-name>xpath</servlet-name>
+     <url-pattern>/</url-pattern>
+   </servlet-mapping> 
     
    <servlet-mapping>
      <servlet-name>xpath</servlet-name>
      <url-pattern>/logout</url-pattern>
    </servlet-mapping>
+   
+   <servlet-mapping>
+     <servlet-name>xpath</servlet-name>
+     <url-pattern>/lookup</url-pattern>
+   </servlet-mapping>
+   
 
    <!-- add any additional servlets and servlet mappings here -->
 
