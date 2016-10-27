@@ -39,6 +39,31 @@ public class HTTPResponseParser {
 	private static final Logger log = Logger.getLogger(HTTPResponseParser.class);
 
 
+	public static  String parseResponseSSL(InputStream in, int length) throws IOException {
+		
+		BufferedReader reader = new BufferedReader(new InputStreamReader(in));
+		
+		String body;
+		
+		int content_length = length;
+		StringBuffer data = new StringBuffer();
+
+		for(int i = 0; i < content_length; i++){
+			int c = reader.read();
+			//System.out.println("c: " + (char)c); 
+			data.append((char) c);
+		}
+
+		String bodyText = data.toString();
+
+		body = bodyText;
+
+		//System.out.println("body: " + bodyText);
+		return body;
+	}
+	
+	
+	
 	public static  ResponseTuple parseResponse(String method, InputStream in) throws IOException {
 				
 		HashMap<String, List<String>>m_headers = new HashMap<String,List<String>>();

@@ -75,6 +75,9 @@ public class RobotsTxtInfo {
 	}
 	
 	public int getCrawlDelay(String key){
+		if (crawlDelays.get(key) == null){
+			return 0;
+		}
 		return crawlDelays.get(key);
 	}
 	

@@ -6,7 +6,6 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
-import java.util.UUID;
 
 import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.Environment;
@@ -17,46 +16,48 @@ import com.sleepycat.persist.EntityStore;
 import com.sleepycat.persist.PrimaryIndex;
 import com.sleepycat.persist.StoreConfig;
 import com.sleepycat.persist.model.Entity;
-import com.sleepycat.persist.model.Persistent;
 import com.sleepycat.persist.model.PrimaryKey;
 
-import edu.upenn.cis455.crawler.info.RobotsTxtInfo;
+
 
 public class DBWrapper {
 	
-//	@Entity
-//	public static class RobotsInfo{
-//		
-//		@PrimaryKey
-//		String host;
-//		
-//		
-//		RobotsTxtInfo robots;
-//		
-//		RobotsInfo(String hostname, RobotsTxtInfo info){
-//			host = hostname;
-//			robots = info;
-//		}
-//		
-//		private RobotsInfo(){}
-//		
-//		public RobotsTxtInfo getRobotsTxtInfo(){
-//			return robots;
-//		}
-//		
-//	}
-//	
-//	/* The data accessor class for the entity model. */
-//	static class RobotsInfoAccessor{
-//		
-//		// webpage accessor
-//		PrimaryIndex<String, RobotsInfo> robotIndex;
-//		
-//		public RobotsInfoAccessor(EntityStore store) throws DatabaseException {
-//			robotIndex = store.getPrimaryIndex(String.class, RobotsInfo.class);
-//		}
-//		
-//	}
+	
+	@Entity 
+	public static class Channel {
+		
+		@PrimaryKey
+		String channelName;
+		private String xpathExpression;
+		
+		Channel( String name, String expr){
+			channelName = name;
+			xpathExpression = expr;
+		}
+		
+		private Channel(){}
+		
+		public String getXPath(){
+			return xpathExpression;
+		}
+		
+		public String getName(){
+			return channelName;
+		}
+		
+	}
+	
+	/* The data accessor class for the entity model. */
+	static class ChannelAccessor{
+		
+		// webpage accessor
+		PrimaryIndex<String, Channel> channelByName;
+		
+		public ChannelAccessor(EntityStore store) throws DatabaseException {
+			channelByName = store.getPrimaryIndex(String.class, Channel.class);
+		}
+		
+	}
 	
 	
 	@Entity
@@ -125,7 +126,6 @@ public class DBWrapper {
 			password = pass;
 		}
 		
-		
 		// deserialization and serialization needs a empty constructor. During
 		//   deserialization a empty constructor is called and the data is filled in 
 		//   afterwards.
@@ -143,11 +143,12 @@ public class DBWrapper {
 	static class UserAccessor{
 		
 		// user accessor
-
+		PrimaryIndex<String, Channel> channelByName;
 		PrimaryIndex<String, User> userByUsername;
 		
 		public UserAccessor(EntityStore store) throws DatabaseException {
 			userByUsername = store.getPrimaryIndex(String.class, User.class);
+			channelByName = store.getPrimaryIndex(String.class, Channel.class);
 		}
 		
 	}
@@ -158,14 +159,16 @@ public class DBWrapper {
 	private static Environment myEnv;
 	private static EntityStore store;
 	private static EntityStore webpage_store;
-	private static EntityStore robot_store;
+	//private static EntityStore robot_store;
+	private static EntityStore channel_store;
 	private UserAccessor user_access_object;
 	private WebPageAccessor webpage_access_object;
+	private ChannelAccessor channel_access_object;
 	//private RobotsInfoAccessor robot_access_object;
 	
 	public DBWrapper( String envDir ) throws DatabaseException, IOException{
 		
-		System.out.println(envDir);
+		//System.out.println(envDir);
 		
 		File home = new File(envDir);
 		
@@ -187,10 +190,12 @@ public class DBWrapper {
 		storeConfig.setTransactional(true);
 		store= new EntityStore(myEnv, "UserStore", storeConfig);
 		webpage_store= new EntityStore(myEnv, "WebPageStore", storeConfig);
+		channel_store= new EntityStore(myEnv, "ChannelStore", storeConfig);
 		//robot_store= new EntityStore(myEnv, "RobotStore", storeConfig);
 		
 		user_access_object = new UserAccessor(store);
 		webpage_access_object = new WebPageAccessor(webpage_store);
+		channel_access_object = new ChannelAccessor(channel_store);
 		//robot_access_object = new RobotsInfoAccessor(robot_store);
 	}
 	
@@ -211,6 +216,23 @@ public class DBWrapper {
 //		}
 //		return null;
 //	}
+	
+	public void putChannel( String name, String xpath ) throws DatabaseException {
+		Channel ch = new Channel(name, xpath);
+		channel_access_object.channelByName.put(ch);
+	}
+	
+	public String getChannelXpath(String name){
+		Channel ch = channel_access_object.channelByName.get(name);
+		if(ch != null){
+			return ch.xpathExpression;
+		}
+		return null;
+	}
+	
+	public void deleteChannel(String name){
+		channel_access_object.channelByName.delete(name);
+	}
 	
 	
 	public void putWebPage( String uri, String content) throws DatabaseException {
@@ -319,10 +341,8 @@ public class DBWrapper {
 	// creates a new user, but also generates a unique id for it.
 	public void putUser( String username, String password ) throws DatabaseException {
 
-		
 		// initialize User entity
 		User u = new User(username, password);
-		
 		
 		// TODO probably should check for its existence before inserting, but the random UUID
 		//   is hacky way to fix this.

@@ -13,7 +13,8 @@
     <property name="test-lib.dir"     location="${build.target.dir}${file.separator}test${file.separator}lib"/>
     <property name="src.main.dir"  location="${build.dir}${file.separator}src${file.separator}"/>
     <property name="inputlib.dir"  location="${shared.root}${file.separator}lib"/>
-    <property name="src.test.dir"  location="${build.dir}${file.separator}src${file.separator}test"/>
+    <property name="src.storm.test.dir"  location="${build.dir}${file.separator}src${file.separator}test${file.separator}edu${file.separator}upenn${file.separator}cis${file.separator}stormlite"/>
+    <property name="src.dbservlet.test.dir"  location="${build.dir}${file.separator}src${file.separator}test${file.separator}edu${file.separator}upenn${file.separator}cis455"/>
     <property name="resources.dir" location="${build.dir}${file.separator}resources"/>
     <property name="conf.dir"      location="${build.dir}${file.separator}conf"/>
 	<property name="crawler-main"  value="edu.upenn.cis455.crawler.XPathCrawler" />
@@ -67,19 +68,33 @@
         </javac>
     </target>
     
-    <target name="compile-tests" description="compiles test Java source code">
+    <target name="compile-stormlite-tests" description="compiles test Java source code">
       <mkdir dir="${test-classes.dir}"/>
-      <javac srcdir="${src.test.dir}${file.separator}" destdir="${test-classes.dir}" debug="on" deprecation="off" optimize="on" includeAntRuntime="no">
-	<classpath>
-	  <pathelement path="${classes.dir}" />
-	  <fileset dir="${inputlib.dir}">
-	    <include name="*.jar"/>
-	  </fileset>
-	</classpath>
+      <javac srcdir="${src.storm.test.dir}${file.separator}" destdir="${test-classes.dir}" debug="on" deprecation="off" optimize="on" includeAntRuntime="no">
+	    <classpath>
+	     <pathelement path="${classes.dir}" />
+	      <fileset dir="${inputlib.dir}">
+	       <include name="*.jar"/>
+	      </fileset>
+	    </classpath>
       </javac>
     </target>
+	
+	<target name="compile-servlet-storage-tests" description="compiles test Java source code">
+	      <mkdir dir="${test-classes.dir}"/>
+	      <javac srcdir="${src.dbservlet.test.dir}${file.separator}" destdir="${test-classes.dir}" debug="on" deprecation="off" optimize="on" includeAntRuntime="no">
+		    <classpath>
+		     <pathelement path="${classes.dir}" />
+		      <fileset dir="${inputlib.dir}">
+		       <include name="*.jar"/>
+		      </fileset>
+		    </classpath>
+	      </javac>
+	    </target>
+	
     
-    <target name="test" depends="compile-tests,compile-crawler,compile-servlet" description="Run tests">
+    <!--<target name="test" depends="compile-tests,compile-crawler,compile-servlet" description="Run tests">-->
+    <target name="test" depends="compile-servlet-storage-tests,compile-crawler,compile-servlet" description="Run tests">
       <java failonerror="true" fork="true" classname="junit.textui.TestRunner">
         <classpath>
           <pathelement location="${test-classes.dir}"/>
@@ -109,6 +124,9 @@
     </target>
 	
 	<target name="crawl" depends="crawler-jar" description="Runs the crawler">
+		
+		<delete dir="./stevenhw"/>
+		
 		<java classname="${crawler-main}">
 			<classpath>
 				<path refid="classpath"/>
@@ -116,7 +134,7 @@
 				<path location="${resources.dir}"/>
 			</classpath>
 			<arg value="http://crawltest.cis.upenn.edu/"/>
-			<arg value="/home/cis555/workspace/555-hw2/DATABASE"/>
+			<arg value="./stevenhw"/>
 			<arg value="100000"/>
 		</java>
 	</target>

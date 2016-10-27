@@ -74,11 +74,11 @@ public class XPathCrawler {
 	public void setMaxSize(int maxSize) {
 		this.maxSize = maxSize;
 	}
-	
+
 	public int getMaxNumPages(){
 		return maxNumPages;
 	}
-	
+
 	public void setMaxPages(int pages){
 		this.maxNumPages = pages;
 	}
@@ -106,10 +106,10 @@ public class XPathCrawler {
 	Queue<URLInfo> frontier_Q = new LinkedList<URLInfo>();
 	HashMap<String, Date> seenUrls = new HashMap<String, Date>(); // url and last time we requested it.
 	HashMap<String, RobotsTxtInfo> hostRobotsMap = new HashMap<String, RobotsTxtInfo>();
-	
+
 	String[] fileTypes = { "text/html", "text/xml", "application/html"};
 	Set<String> acceptableFileTypes = new HashSet<String>(Arrays.asList(fileTypes));
-	
+
 	RobotParser robotParser = new RobotParser();
 
 
@@ -176,6 +176,47 @@ public class XPathCrawler {
 	}
 
 
+	private boolean isURLValidSSL(HttpsURLConnection con ){
+
+		boolean valid = false;
+		int length = 0;
+		String contentType = "";
+
+		if( con.getContentLength() != -1  ){
+
+			length = con.getContentLength();
+
+		}else{
+			System.out.println("content-length is null");
+		}
+
+		if (con.getContentType()  != null){
+			contentType = con.getContentType();
+		}else{
+			System.out.println("content-type is not known");
+		}
+
+		if( length != 0 && length < maxSize ) {
+
+			//System.out.println("length condition met! " + String.valueOf(length) + " " + String.valueOf(maxSize));
+
+			valid = true;
+		} else{
+
+			return false;
+		}
+
+		if( contentType.compareTo("") != 0 && (acceptableFileTypes.contains(contentType) || contentType.contains("+xml") )){
+			valid = true;
+		}else{
+			return false;
+		}
+
+		return valid;
+
+	}
+
+
 	private boolean isURLValid(HashMap<String, List<String>> headers ){
 
 		boolean valid = false;
@@ -189,7 +230,7 @@ public class XPathCrawler {
 			}
 
 			String length_str = headers.get("content-length").get(0);
-			
+
 			//System.out.println(length_str);
 			length = Integer.valueOf(length_str);
 
@@ -200,12 +241,12 @@ public class XPathCrawler {
 		}
 
 		if( length != 0 && length < maxSize ) {
-			
+
 			//System.out.println("length condition met! " + String.valueOf(length) + " " + String.valueOf(maxSize));
-			
+
 			valid = true;
 		} else{
-			
+
 			return false;
 		}
 
@@ -238,7 +279,7 @@ public class XPathCrawler {
 				//				System.out.println(text.getUrl());
 				//			}
 				//			System.out.println("END URLs in Queue ======");
-				
+
 				// for testing purposes, limit the number of pages we attempt to crawl.
 				if( getMaxNumPages() != -1 && counter == getMaxNumPages() ){
 					break;
@@ -248,14 +289,14 @@ public class XPathCrawler {
 				if( getMaxNumPages() != -1 ){
 					counter ++;
 				}
-				
+
 				//System.out.println("dequeued URL:" + url.getUrl());
 
 				// we've seen the url before
 				if( seenUrls.containsKey(url.getUrl()) == true ){
-					
+
 					//System.out.println("We've seen this url before:" + url.getUrl());
-					
+
 					boolean disallowedUrl = false;
 					String host = url.getHostName();
 
@@ -267,9 +308,19 @@ public class XPathCrawler {
 						List<String> defaultDisallowed = hostRobotsMap.get(host).getDisallowedLinks("*");
 
 						// add default disallowed links to the set
-						for( String link  : defaultDisallowed ){
-							if( !disallowed.contains(link) ){
-								disallowed.add(link);
+						// add default disallowed links to the set
+						if( disallowed == null ){ // nothing for this user agent
+							if(defaultDisallowed == null){
+								disallowed = null;
+							}else{ // just use the default
+								disallowed = defaultDisallowed;
+							}
+						}else{// add to existing
+							
+							for( String link  : defaultDisallowed ){
+								if( !disallowed.contains(link) ){
+									disallowed.add(link);
+								}
 							}
 						}
 
@@ -324,13 +375,14 @@ public class XPathCrawler {
 							//System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
 							Thread.sleep(delay*1000);
 						}
-						
+
 						//System.out.println("This url is allowed, getting ready to send a HEAD request");
-						boolean ssl = false;
+
+						//boolean ssl = false;
 						if(url.getUrl().startsWith("https:")){
-							
-							ssl = true;
-							
+
+							//ssl = true;
+
 							try {
 								URL url_ssl = new URL(url.getUrl()); 
 
@@ -339,7 +391,7 @@ public class XPathCrawler {
 								con.setRequestProperty("Host", url.getHostName());
 								con.addRequestProperty("User-Agent", "cis455crawler");
 								con.setRequestMethod("HEAD");
-								
+
 								SimpleDateFormat dateFormat = new SimpleDateFormat(
 										"EEE dd MMM yyyy hh:mm:ss zzz", Locale.US);
 								dateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
@@ -352,8 +404,263 @@ public class XPathCrawler {
 
 								con.connect();
 
-								in  = con.getInputStream();
-								//out = con.getOutputStream();
+								//in  = con.getInputStream();
+								//TODO add the processing stuff here
+
+								//ResponseTuple response = HTTPResponseParser.parseResponse("HEAD", in);
+
+								String code =  String.valueOf(con.getResponseCode());
+
+
+								if(code.compareTo("304") == 0){ // not modified 
+									//do nothing, no need to put back into the seen urls list
+									//System.out.println("HEAD request failed with code: " + code + "File has not been modified");
+									System.out.println( url.getUrl() + ": Not Modified");
+
+									// dont retrieve it again if its an xml doc, but probably re-extract the links of a html file
+									if( !url.getUrl().endsWith(".xml") ){
+
+										String webpage_content = dbwrapper.getWebPage(url.getUrl());
+
+										if(webpage_content != null){
+											Document doc = Jsoup.parse(webpage_content);
+											Elements links = doc.select("a[href]");
+
+											for( Element link : links  ){
+
+												//String abs_url = url.getUrl() + link.attr("href");
+												String abs_url = url.getBaseUrl() + link.attr("href");
+
+												//for(Attribute a : link.attributes()){
+												//	System.out.println("key: " + a.getKey() + " value: " + a.getValue());
+												//}
+
+												//System.out.println("link extracted: " + abs_url);
+												//System.out.println("link element: " + link.toString());
+												frontier_Q.add(new URLInfo(abs_url));
+
+											}
+										}
+										else{
+											System.out.println("Could not retrieve webpage content from database!");
+										}
+									}
+
+
+								}else if(code.compareTo("200") == 0){ // it has been modified
+
+									// check if new modified file is within size limits
+
+									if( isURLValidSSL(con) == true ){
+
+										if( url.getUrl().endsWith(".xml") ){ // just get the contents of an .xml file
+
+											String webpage_content;
+											if (  ( ( webpage_content = dbwrapper.getWebPage(url.getUrl()) ) != null)  ){ // check if we have the page in the database, first.
+												System.out.println( url.getUrl() + ": Content Seen");
+											}else{
+												// wait crawl delay before sending followup GET request, if it was set.
+												if ( delay != 0  ){ // it was set, delay next request by specified time.
+
+													// Note: to make it more efficient, could just keep track of last queried time and 
+													//   just re-enqueue. If the next time we get a URL for the same host, we just check
+													//   if the current time is after the delay interval.
+													//System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
+													Thread.sleep(delay*1000);
+												}
+
+
+												try {
+													url_ssl = new URL(url.getUrl()); 
+
+													con = (HttpsURLConnection)url_ssl.openConnection();
+													con.setDoOutput (true);
+													con.setRequestProperty("Host", url.getHostName());
+													con.setRequestMethod("GET");
+													con.addRequestProperty("User-Agent", "cis455crawler");
+													con.addRequestProperty("Connection", "close");
+
+													System.out.println( url.getUrl() + ": Downloading");
+													con.connect();
+
+													in  = con.getInputStream();
+
+												} catch (MalformedURLException e) {
+
+													e.printStackTrace();
+													continue;
+
+												} catch (IOException e) {
+
+													e.printStackTrace();
+													continue;
+
+												}
+												
+												int content_length = con.getContentLength();
+
+												if(content_length != -1){
+													String body = HTTPResponseParser.parseResponseSSL(in, content_length);
+
+													code = String.valueOf(con.getResponseCode());
+
+													if( code.compareTo("200") == 0 ){ // got a modified version of the seen url.
+
+														//System.out.println("BODY of file for url: " + url.getUrl());
+														//System.out.println("Body number of bytes: " + response.m_body.length());
+
+														// store the page in database.
+														if( dbwrapper.containsWebPage(body) == true){
+															//System.out.println( url.getUrl() + ": Content Seen");
+														}else{
+															dbwrapper.putWebPage(url.getUrl(), body);
+														}
+
+													}else {
+														System.out.println("GET request failed with code: " + code);
+													}
+												}												
+
+												// update the seen list time, since the file was valid (it was modified), so a fresh 
+												//   copy of this url must have a modified date after this one.
+												Date now = Calendar.getInstance().getTime();
+												seenUrls.put(url.getUrl(), now);
+
+											}
+
+
+										}
+										else{ // this is a .html file or just a link to another url, use JSOUP to extract links
+
+
+											String webpage_content;
+
+											if ( ( webpage_content = dbwrapper.getWebPage(url.getUrl()) ) != null  ){ // check if we have the page in the database, first.
+												System.out.println( url.getUrl() + ": Content Seen");
+
+											}else{ // not in the database, retreive that webpage.
+
+
+												// wait crawl delay before sending followup GET request, if it was set.
+												if ( delay != 0  ){ // it was set, delay next request by specified time.
+
+													// Note: to make it more efficient, could just keep track of last queried time and 
+													//   just re-enqueue. If the next time we get a URL for the same host, we just check
+													//   if the current time is after the delay interval.
+													System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
+													Thread.sleep(delay*1000);
+												}
+
+
+												// get new connection to send GET?
+
+												try {
+													url_ssl = new URL(url.getUrl()); 
+
+													con = (HttpsURLConnection)url_ssl.openConnection();
+													con.setDoOutput (true);
+													con.setRequestProperty("Host", url.getHostName());
+													con.setRequestMethod("GET");
+													con.addRequestProperty("User-Agent", "cis455crawler");
+													con.addRequestProperty("Connection", "close");
+
+													System.out.println( url.getUrl() + ": Downloading");
+													con.connect();
+
+													in  = con.getInputStream();
+													//out = con.getOutputStream();
+
+												} catch (MalformedURLException e) {
+
+													e.printStackTrace();
+													continue;
+
+												} catch (IOException e) {
+
+													e.printStackTrace();
+													continue;
+
+												}
+
+
+												int content_length = con.getContentLength();
+
+												if(content_length != -1){
+
+													String body = HTTPResponseParser.parseResponseSSL(in, content_length);
+
+													code = String.valueOf(con.getResponseCode());
+
+													if( code.compareTo("200") == 0 ){ // got a modified version of the seen url.
+														webpage_content = body;
+
+														// store the page in database.
+														if( dbwrapper.containsWebPage(body) == true){
+															//System.out.println( url.getUrl() + ": Content Seen");
+															webpage_content = null;
+														}else{
+															dbwrapper.putWebPage(url.getUrl(), webpage_content);
+														}
+													}else {
+														System.out.println("GET request failed with code: " + code);
+														webpage_content = null;
+													}
+												}
+												else{
+													webpage_content = null;
+												}
+											}
+
+											if( webpage_content != null ){ // got a modified version of the seen url.
+
+
+												//System.out.println("BODY of file for url: " + url.getUrl());
+												//System.out.println("Body number of bytes: " + response.m_body.length());
+
+												//System.out.println("Extracting links from a html file!");
+
+
+												//Document doc = Jsoup.connect(url.getUrl()).get();
+												//System.out.println("BODY: " + response.m_body);
+												Document doc = Jsoup.parse(webpage_content);
+												Elements links = doc.select("a[href]");
+
+												for( Element link : links  ){
+
+													//String abs_url = url.getUrl() + link.attr("href");
+													String abs_url = url.getBaseUrl() + link.attr("href");
+
+													//for(Attribute a : link.attributes()){
+													//	System.out.println("key: " + a.getKey() + " value: " + a.getValue());
+													//}
+
+													//System.out.println("link extracted: " + abs_url);
+													//System.out.println("link element: " + link.toString());
+													frontier_Q.add(new URLInfo(abs_url));
+
+												}						
+
+											}else{
+												//System.out.println("Could not extract links. webpage content is null... " );
+											}
+
+											// update the seen list time, since the file was valid (it was modified), so a fresh 
+											//   copy of this url must have a modified date after this one.
+											Date now = Calendar.getInstance().getTime();
+											seenUrls.put(url.getUrl(), now);
+
+										}
+									}
+									else{ // fails a mime-type or size requirement
+										System.out.println( url.getUrl() + ": Not Downloading");
+									}
+
+								}else{ // error sending HEAD request
+									System.out.println("HEAD request failed with code: " + code);
+
+								}
+
+								//TODO MARKER end -------------------------------------------
 
 							} catch (MalformedURLException e) {
 
@@ -366,9 +673,9 @@ public class XPathCrawler {
 								continue;
 
 							}
-									
-						} else {
-							
+
+						} else { // handle http separately
+
 							// Send a Head request to check if file has been modified.
 							InetAddress address = InetAddress.getByName(url.getHostName());
 
@@ -376,245 +683,24 @@ public class XPathCrawler {
 
 							out = connection.getOutputStream();
 							in = connection.getInputStream();
-							
+
 							sendHead(out, url, true);
-						}
-						
 
-						//System.out.println("Sending HEAD...");
-						// set a seen flag to indicate that we want to check if the seen url has been modified.
-						
+							ResponseTuple response = HTTPResponseParser.parseResponse("HEAD", in);
 
-						ResponseTuple response = HTTPResponseParser.parseResponse("HEAD", in);
+							String code = response.m_headers.get("status-code").get(0);
 
-						String code = response.m_headers.get("status-code").get(0);
+							if(code.compareTo("304") == 0){ // not modified 
+								//do nothing, no need to put back into the seen urls list
+								//System.out.println("HEAD request failed with code: " + code + "File has not been modified");
+								System.out.println( url.getUrl() + ": Not Modified");
 
-						if(code.compareTo("304") == 0){ // not modified 
-							//do nothing, no need to put back into the seen urls list
-							//System.out.println("HEAD request failed with code: " + code + "File has not been modified");
-							System.out.println( url.getUrl() + ": Not Modified");
-							
-							// dont retrieve it again if its an xml doc, but probably re-extract the links of a html file
-							if( !url.getUrl().endsWith(".xml") ){
-								
-								String webpage_content = dbwrapper.getWebPage(url.getUrl());
-								
-								if(webpage_content != null){
-									Document doc = Jsoup.parse(webpage_content);
-									Elements links = doc.select("a[href]");
-		
-									for( Element link : links  ){
-		
-										//String abs_url = url.getUrl() + link.attr("href");
-										String abs_url = url.getBaseUrl() + link.attr("href");
-		
-										//for(Attribute a : link.attributes()){
-										//	System.out.println("key: " + a.getKey() + " value: " + a.getValue());
-										//}
-		
-										//System.out.println("link extracted: " + abs_url);
-										//System.out.println("link element: " + link.toString());
-										frontier_Q.add(new URLInfo(abs_url));
-		
-									}
-								}
-								else{
-									System.out.println("Could not retrieve webpage content from database!");
-								}
-							}
-							
-							
-						}else if(code.compareTo("200") == 0){ // it has been modified
+								// dont retrieve it again if its an xml doc, but probably re-extract the links of a html file
+								if( !url.getUrl().endsWith(".xml") ){
 
-							// check if new modified file is within size limits
+									String webpage_content = dbwrapper.getWebPage(url.getUrl());
 
-							if( isURLValid(response.m_headers) == true ){
-
-								if( url.getUrl().endsWith(".xml") ){ // just get the contents of an .xml file
-									
-									String webpage_content;
-									if (  ( ( webpage_content = dbwrapper.getWebPage(url.getUrl()) ) != null)  ){ // check if we have the page in the database, first.
-										System.out.println( url.getUrl() + " in the database ");
-									}else{
-										// wait crawl delay before sending followup GET request, if it was set.
-										if ( delay != 0  ){ // it was set, delay next request by specified time.
-
-											// Note: to make it more efficient, could just keep track of last queried time and 
-											//   just re-enqueue. If the next time we get a URL for the same host, we just check
-											//   if the current time is after the delay interval.
-											//System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
-											Thread.sleep(delay*1000);
-										}
-
-										if(ssl == true){
-											try {
-												URL url_ssl = new URL(url.getUrl()); 
-
-												HttpsURLConnection con = (HttpsURLConnection)url_ssl.openConnection();
-												con.setDoOutput (true);
-												con.setRequestProperty("Host", url.getHostName());
-												con.setRequestMethod("GET");
-												con.addRequestProperty("User-Agent", "cis455crawler");
-												con.addRequestProperty("Connection", "close");
-												
-												System.out.println( url.getUrl() + ": Downloading");
-												con.connect();
-
-												in  = con.getInputStream();
-												//out = con.getOutputStream();
-
-											} catch (MalformedURLException e) {
-
-												e.printStackTrace();
-												continue;
-
-											} catch (IOException e) {
-
-												e.printStackTrace();
-												continue;
-
-											}
-										} else{
-											
-											// get new connection to send GET?
-											InetAddress address = InetAddress.getByName(url.getHostName());
-											Socket connection = new Socket(address, url.getPortNo());
-
-											out = connection.getOutputStream();
-											in = connection.getInputStream();
-											
-											System.out.println( url.getUrl() + ": Downloading");
-											sendGet(out, url);
-										}
-										
-										
-
-										response = HTTPResponseParser.parseResponse("GET", in);
-
-										code = response.m_headers.get("status-code").get(0);
-
-										if( code.compareTo("200") == 0 ){ // got a modified version of the seen url.
-
-
-											//System.out.println("BODY of file for url: " + url.getUrl());
-											//System.out.println("Body number of bytes: " + response.m_body.length());
-
-											// store the page in database.
-											if( dbwrapper.containsWebPage(response.m_body) == true){
-												System.out.println( url.getUrl() + ": Content Seen");
-											}else{
-												dbwrapper.putWebPage(url.getUrl(), response.m_body);
-											}
-
-										}else {
-											System.out.println("GET request failed with code: " + code);
-										}
-										
-										// update the seen list time, since the file was valid (it was modified), so a fresh 
-										//   copy of this url must have a modified date after this one.
-										Date now = Calendar.getInstance().getTime();
-										seenUrls.put(url.getUrl(), now);
-										
-									}
-
-									
-								}
-								else{ // this is a .html file or just a link to another url, use JSOUP to extract links
-
-
-									String webpage_content;
-
-									if ( ( webpage_content = dbwrapper.getWebPage(url.getUrl()) ) != null  ){ // check if we have the page in the database, first.
-										System.out.println( url.getUrl() + " in the database ");
-
-									}else{ // not in the database, retreive that webpage.
-
-
-										// wait crawl delay before sending followup GET request, if it was set.
-										if ( delay != 0  ){ // it was set, delay next request by specified time.
-
-											// Note: to make it more efficient, could just keep track of last queried time and 
-											//   just re-enqueue. If the next time we get a URL for the same host, we just check
-											//   if the current time is after the delay interval.
-											System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
-											Thread.sleep(delay*1000);
-										}
-
-
-										// get new connection to send GET?
-										if(ssl == true){
-											try {
-												URL url_ssl = new URL(url.getUrl()); 
-
-												HttpsURLConnection con = (HttpsURLConnection)url_ssl.openConnection();
-												con.setDoOutput (true);
-												con.setRequestProperty("Host", url.getHostName());
-												con.setRequestMethod("GET");
-												con.addRequestProperty("User-Agent", "cis455crawler");
-												con.addRequestProperty("Connection", "close");
-												
-												System.out.println( url.getUrl() + ": Downloading");
-												con.connect();
-
-												in  = con.getInputStream();
-												//out = con.getOutputStream();
-
-											} catch (MalformedURLException e) {
-
-												e.printStackTrace();
-												continue;
-
-											} catch (IOException e) {
-
-												e.printStackTrace();
-												continue;
-
-											}
-										} else{
-											
-											// get new connection to send GET?
-											InetAddress address = InetAddress.getByName(url.getHostName());
-											Socket connection = new Socket(address, url.getPortNo());
-
-											out = connection.getOutputStream();
-											in = connection.getInputStream();
-											
-											System.out.println( url.getUrl() + ": Downloading");
-											sendGet(out, url);
-										}
-
-
-										response = HTTPResponseParser.parseResponse("GET", in);
-
-										code = response.m_headers.get("status-code").get(0);
-
-										if( code.compareTo("200") == 0 ){ // got a modified version of the seen url.
-											webpage_content = response.m_body;
-
-											// store the page in database.
-											if( dbwrapper.containsWebPage(response.m_body) == true){
-												System.out.println( url.getUrl() + ": Content Seen");
-												webpage_content = null;
-											}else{
-												dbwrapper.putWebPage(url.getUrl(), webpage_content);
-											}
-										}else {
-											System.out.println("GET request failed with code: " + code);
-											webpage_content = null;
-										}
-									}
-
-									if( webpage_content != null ){ // got a modified version of the seen url.
-
-
-										//System.out.println("BODY of file for url: " + url.getUrl());
-										//System.out.println("Body number of bytes: " + response.m_body.length());
-
-										//System.out.println("Extracting links from a html file!");
-
-
-										//Document doc = Jsoup.connect(url.getUrl()).get();
-										//System.out.println("BODY: " + response.m_body);
+									if(webpage_content != null){
 										Document doc = Jsoup.parse(webpage_content);
 										Elements links = doc.select("a[href]");
 
@@ -631,27 +717,191 @@ public class XPathCrawler {
 											//System.out.println("link element: " + link.toString());
 											frontier_Q.add(new URLInfo(abs_url));
 
-										}						
-
-									}else{
-										//System.out.println("Could not extract links. webpage content is null... " );
+										}
 									}
-
-									// update the seen list time, since the file was valid (it was modified), so a fresh 
-									//   copy of this url must have a modified date after this one.
-									Date now = Calendar.getInstance().getTime();
-									seenUrls.put(url.getUrl(), now);
-
+									else{
+										System.out.println("Could not retrieve webpage content from database!");
+									}
 								}
-							}
-							else{ // fails a mime-type or size requirement
-								System.out.println( url.getUrl() + ": Not Downloading");
-							}
 
-						}else{ // error sending HEAD request
-							System.out.println("HEAD request failed with code: " + code);
+
+							}else if(code.compareTo("200") == 0){ // it has been modified
+
+								// check if new modified file is within size limits
+
+								if( isURLValid(response.m_headers) == true ){
+
+									if( url.getUrl().endsWith(".xml") ){ // just get the contents of an .xml file
+
+										String webpage_content;
+										if (  ( ( webpage_content = dbwrapper.getWebPage(url.getUrl()) ) != null)  ){ // check if we have the page in the database, first.
+											System.out.println( url.getUrl() + ": Content Seen");
+										}else{
+											// wait crawl delay before sending followup GET request, if it was set.
+											if ( delay != 0  ){ // it was set, delay next request by specified time.
+
+												// Note: to make it more efficient, could just keep track of last queried time and 
+												//   just re-enqueue. If the next time we get a URL for the same host, we just check
+												//   if the current time is after the delay interval.
+												//System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
+												Thread.sleep(delay*1000);
+											}
+
+
+
+											// get new connection to send GET?
+											address = InetAddress.getByName(url.getHostName());
+											connection = new Socket(address, url.getPortNo());
+
+											out = connection.getOutputStream();
+											in = connection.getInputStream();
+
+											System.out.println( url.getUrl() + ": Downloading");
+											sendGet(out, url);
+
+
+
+
+											response = HTTPResponseParser.parseResponse("GET", in);
+
+											code = response.m_headers.get("status-code").get(0);
+
+											if( code.compareTo("200") == 0 ){ // got a modified version of the seen url.
+
+
+												//System.out.println("BODY of file for url: " + url.getUrl());
+												//System.out.println("Body number of bytes: " + response.m_body.length());
+
+												// store the page in database.
+												if( dbwrapper.containsWebPage(response.m_body) == true){
+													//System.out.println( url.getUrl() + ": Content Seen");
+												}else{
+													dbwrapper.putWebPage(url.getUrl(), response.m_body);
+												}
+
+											}else {
+												System.out.println("GET request failed with code: " + code);
+											}
+
+											// update the seen list time, since the file was valid (it was modified), so a fresh 
+											//   copy of this url must have a modified date after this one.
+											Date now = Calendar.getInstance().getTime();
+											seenUrls.put(url.getUrl(), now);
+
+										}
+
+
+									}
+									else{ // this is a .html file or just a link to another url, use JSOUP to extract links
+
+
+										String webpage_content;
+
+										if ( ( webpage_content = dbwrapper.getWebPage(url.getUrl()) ) != null  ){ // check if we have the page in the database, first.
+											System.out.println( url.getUrl() + ": Content Seen");
+
+										}else{ // not in the database, retreive that webpage.
+
+
+											// wait crawl delay before sending followup GET request, if it was set.
+											if ( delay != 0  ){ // it was set, delay next request by specified time.
+
+												// Note: to make it more efficient, could just keep track of last queried time and 
+												//   just re-enqueue. If the next time we get a URL for the same host, we just check
+												//   if the current time is after the delay interval.
+												System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
+												Thread.sleep(delay*1000);
+											}
+
+
+											// get new connection to send GET?
+
+
+											// get new connection to send GET?
+											address = InetAddress.getByName(url.getHostName());
+											connection = new Socket(address, url.getPortNo());
+
+											out = connection.getOutputStream();
+											in = connection.getInputStream();
+
+											System.out.println( url.getUrl() + ": Downloading");
+											sendGet(out, url);
+
+
+											response = HTTPResponseParser.parseResponse("GET", in);
+
+											code = response.m_headers.get("status-code").get(0);
+
+											if( code.compareTo("200") == 0 ){ // got a modified version of the seen url.
+												webpage_content = response.m_body;
+
+												// store the page in database.
+												if( dbwrapper.containsWebPage(response.m_body) == true){
+													//System.out.println( url.getUrl() + ": Content Seen");
+													webpage_content = null;
+												}else{
+													dbwrapper.putWebPage(url.getUrl(), webpage_content);
+												}
+											}else {
+												System.out.println("GET request failed with code: " + code);
+												webpage_content = null;
+											}
+										}
+
+										if( webpage_content != null ){ // got a modified version of the seen url.
+
+
+											//System.out.println("BODY of file for url: " + url.getUrl());
+											//System.out.println("Body number of bytes: " + response.m_body.length());
+
+											//System.out.println("Extracting links from a html file!");
+
+
+											//Document doc = Jsoup.connect(url.getUrl()).get();
+											//System.out.println("BODY: " + response.m_body);
+											Document doc = Jsoup.parse(webpage_content);
+											Elements links = doc.select("a[href]");
+
+											for( Element link : links  ){
+
+												//String abs_url = url.getUrl() + link.attr("href");
+												String abs_url = url.getBaseUrl() + link.attr("href");
+
+												//for(Attribute a : link.attributes()){
+												//	System.out.println("key: " + a.getKey() + " value: " + a.getValue());
+												//}
+
+												//System.out.println("link extracted: " + abs_url);
+												//System.out.println("link element: " + link.toString());
+												frontier_Q.add(new URLInfo(abs_url));
+
+											}						
+
+										}else{
+											//System.out.println("Could not extract links. webpage content is null... " );
+										}
+
+										// update the seen list time, since the file was valid (it was modified), so a fresh 
+										//   copy of this url must have a modified date after this one.
+										Date now = Calendar.getInstance().getTime();
+										seenUrls.put(url.getUrl(), now);
+
+									}
+								}
+								else{ // fails a mime-type or size requirement
+									System.out.println( url.getUrl() + ": Not Downloading");
+								}
+
+							}else{ // error sending HEAD request
+								System.out.println("HEAD request failed with code: " + code);
+
+							}
 
 						}
+
+						//System.out.println("Sending HEAD...");
+						// set a seen flag to indicate that we want to check if the seen url has been modified.
+
 					}
 					else{
 						// don't query this URL, its disallowed
@@ -663,6 +913,9 @@ public class XPathCrawler {
 
 
 				} else { // We haven't seen this url before
+
+					// TODO haven't seen this url before...
+
 
 					boolean disallowedUrl = false;
 					String host = url.getHostName();
@@ -680,9 +933,18 @@ public class XPathCrawler {
 						List<String> defaultDisallowed = hostRobotsMap.get(host).getDisallowedLinks("*");
 
 						// add default disallowed links to the set
-						for( String link  : defaultDisallowed ){
-							if( !disallowed.contains(link) ){
-								disallowed.add(link);
+						if( disallowed == null ){ // nothing for this user agent
+							if(defaultDisallowed == null){
+								disallowed = null;
+							}else{ // just use the default
+								disallowed = defaultDisallowed;
+							}
+						}else{// add to existing
+							
+							for( String link  : defaultDisallowed ){
+								if( !disallowed.contains(link) ){
+									disallowed.add(link);
+								}
 							}
 						}
 
@@ -725,10 +987,10 @@ public class XPathCrawler {
 
 							// Send a Head request to check if file has been modified.
 							boolean ssl = false;
-							if(url.getUrl().startsWith("https:")){
-								
+							if(url.getUrl().startsWith("https:")){ // https request
+
 								ssl = true;
-								
+
 								try {
 									URL url_ssl = new URL(url.getUrl()); 
 
@@ -738,7 +1000,7 @@ public class XPathCrawler {
 									con.setRequestMethod("HEAD");
 									con.addRequestProperty("User-Agent", "cis455crawler");
 									con.addRequestProperty("Connection", "close");
-									
+
 									// check the crawl-delay and wait 
 									int delay = hostRobotsMap.get(host).getCrawlDelay(getUserAgent());
 
@@ -749,11 +1011,237 @@ public class XPathCrawler {
 										//System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
 										Thread.sleep(delay*1000);
 									}
-									
+
 									con.connect();
 
 									in  = con.getInputStream();
-									//out = con.getOutputStream();
+
+
+									//TODO add the processing stuff here
+
+									String code =  String.valueOf(con.getResponseCode());
+
+									if( code.compareTo("200") == 0 ){
+
+										if( isURLValidSSL(con) == true ){
+
+											if( url.getUrl().endsWith(".xml") ){ // just get the contents of an .xml file
+
+												String webpage_content;
+
+												if ( ( webpage_content = dbwrapper.getWebPage(url.getUrl()) ) != null  ){ // check if we have the page in the database, first.
+													System.out.println( url.getUrl() + ": Content Seen");
+												}
+												else{
+
+													delay = hostRobotsMap.get(host).getCrawlDelay(getUserAgent());
+													if ( delay != 0  ){ // it was set, delay next request by specified time.
+
+														// Note: to make it more efficient, could just keep track of last queried time and 
+														//   just re-enqueue. If the next time we get a URL for the same host, we just check
+														//   if the current time is after the delay interval.
+														//System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
+														Thread.sleep(delay*1000);
+													}
+
+
+													//System.out.println("Downloading an .xml file!");
+
+													// get new connection to send GET?
+
+													try {
+														url_ssl = new URL(url.getUrl()); 
+
+														con = (HttpsURLConnection)url_ssl.openConnection();
+														con.setDoOutput (true);
+														con.setRequestProperty("Host", url.getHostName());
+														con.setRequestMethod("GET");
+														con.addRequestProperty("User-Agent", "cis455crawler");
+														con.addRequestProperty("Connection", "close");
+
+														System.out.println( url.getUrl() + ": Downloading");
+														con.connect();
+
+														in  = con.getInputStream();
+														//out = con.getOutputStream();
+
+													} catch (MalformedURLException e) {
+
+														e.printStackTrace();
+														continue;
+
+													} catch (IOException e) {
+
+														e.printStackTrace();
+														continue;
+
+													}
+													
+
+													int content_length = con.getContentLength();
+
+													if(content_length != -1){
+
+														String body = HTTPResponseParser.parseResponseSSL(in, content_length);
+
+														code =  String.valueOf(con.getResponseCode());
+
+														if( code.compareTo("200") == 0 ){
+
+															//System.out.println("BODY of file for url: " + url.getUrl());
+															//System.out.println("Body number of bytes: " + response.m_body.length());
+															// update the data in the database.
+															if( dbwrapper.containsWebPage(body) == true){
+																//System.out.println( url.getUrl() + ": Content Seen");
+															}
+															else{
+																dbwrapper.putWebPage(url.getUrl(), body);
+															}
+
+														} else{
+															System.out.println("GET request failed with code: " + code);
+														}
+													}
+
+													// update the seen list, since this is a url we have not seen before.
+													Date now = Calendar.getInstance().getTime();
+													seenUrls.put(url.getUrl(), now);
+												}
+
+											} 
+											else{ // this is a .html file or just a link to another url, use JSOUP to extract links
+
+												String webpage_content;
+
+												if ( ( webpage_content = dbwrapper.getWebPage(url.getUrl()) ) != null  ){ // check if we have the page in the database, first.
+													System.out.println( url.getUrl() + ": Content Seen");
+
+												}
+												else{
+													delay = hostRobotsMap.get(host).getCrawlDelay(getUserAgent());
+													if ( delay != 0  ){ // it was set, delay next request by specified time.
+
+														// Note: to make it more efficient, could just keep track of last queried time and 
+														//   just re-enqueue. If the next time we get a URL for the same host, we just check
+														//   if the current time is after the delay interval.
+														//System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
+														Thread.sleep(delay*1000);
+													}
+
+
+													// get new connection to send GET?
+													
+														try {
+															 url_ssl = new URL(url.getUrl()); 
+
+															con = (HttpsURLConnection)url_ssl.openConnection();
+															con.setDoOutput (true);
+															con.setRequestProperty("Host", url.getHostName());
+															con.setRequestMethod("GET");
+															con.addRequestProperty("User-Agent", "cis455crawler");
+															con.addRequestProperty("Connection", "close");
+
+															System.out.println( url.getUrl() + ": Downloading");
+															con.connect();
+
+															in  = con.getInputStream();
+															//out = con.getOutputStream();
+
+														} catch (MalformedURLException e) {
+
+															e.printStackTrace();
+															continue;
+
+														} catch (IOException e) {
+
+															e.printStackTrace();
+															continue;
+
+														}
+													
+														
+														
+														
+														int content_length = con.getContentLength();
+
+														if(content_length != -1){
+
+															String body = HTTPResponseParser.parseResponseSSL(in, content_length);
+
+															code = String.valueOf(con.getResponseCode());
+
+
+															if( code.compareTo("200") == 0 ){
+																webpage_content = body;
+
+																// store the page in database.
+																if( dbwrapper.containsWebPage(body) == true){
+																	//System.out.println( url.getUrl() + ": Content Seen");
+
+																	// skip the extracting
+																	webpage_content = null;
+																}
+																else{
+																	dbwrapper.putWebPage(url.getUrl(), webpage_content);
+																}
+															}else{
+																System.out.println("GET request failed with code: " + code);
+																webpage_content = null;
+															}
+														}else{
+															
+															webpage_content = null;
+															
+														}
+												}
+
+												if( webpage_content != null ){
+
+													//System.out.println("BODY of file for url: " + url.getUrl());
+													//System.out.println("Body number of bytes: " + response.m_body.length());
+
+													//System.out.println("Extracting links from a html file!");
+
+													//Document doc = Jsoup.connect(url.getUrl()).get();
+													//System.out.println("BODY: " + response.m_body);
+
+													Document doc = Jsoup.parse(webpage_content);
+													Elements links = doc.select("a[href]");
+
+													for( Element link : links  ){
+
+														//String abs_url = url.getUrl() + link.attr("href");
+														String abs_url = url.getBaseUrl() + link.attr("href");
+
+														//for(Attribute a : link.attributes()     ){
+														//	System.out.println("key: " + a.getKey() + " value: " + a.getValue());
+														//}
+
+														//System.out.println("link extracted: " + abs_url);
+														URLInfo info = new URLInfo(abs_url);
+														frontier_Q.add(info);
+
+													}
+
+												} else{
+													//System.out.println("Could not extract links. webpage content is null... " );
+												}
+
+												//System.out.println(" Whole doc body?: \n"+ doc.toString());
+
+												Date now = Calendar.getInstance().getTime();
+												seenUrls.put(url.getUrl(), now);
+
+											}
+										}
+										else{// fails a mime-type or size requirement
+											System.out.println( url.getUrl() + ": Not Downloading");
+										}
+
+									} else{ // HEAD request failed...
+										System.out.println("HEAD request failed with code: "+ code);
+									}
+
 
 								} catch (MalformedURLException e) {
 
@@ -766,11 +1254,10 @@ public class XPathCrawler {
 									continue;
 
 								}
-										
-							} else {
-								
-								
-								
+
+							} else { // handle http separately
+
+
 								// check the crawl-delay and wait 
 								int delay = hostRobotsMap.get(host).getCrawlDelay(getUserAgent());
 
@@ -781,7 +1268,7 @@ public class XPathCrawler {
 									//System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
 									Thread.sleep(delay*1000);
 								}
-								
+
 								// Send a Head request to check if file has been modified.
 								InetAddress address = InetAddress.getByName(url.getHostName());
 
@@ -789,245 +1276,26 @@ public class XPathCrawler {
 
 								out = connection.getOutputStream();
 								in = connection.getInputStream();
-								
+
 								// haven't seen this before, set flag to false, as we don't have any info of last access time.
 								sendHead(out, url, false);
-							}
-
-							
-														
-							//System.out.println("Sending HEAD...");
-							// set a seen flag to indicate that we haven't seen url, so we dont want to check if it has been modified.
-							//sendHead(out, url, false);
-
-							ResponseTuple response = HTTPResponseParser.parseResponse("HEAD", in);
-
-							String code = response.m_headers.get("status-code").get(0);
-							
-							if(code.compareTo("304") == 0){ // not modified 
-								//do nothing, no need to put back into the seen urls list
-								//System.out.println("HEAD request failed with code: " + code + "File has not been modified");
-								System.out.println( url.getUrl() + ": Not Modified");
-								
-								// dont retrieve it again if its an xml doc, but probably re-extract the links of a html file
-								if( !url.getUrl().endsWith(".xml") ){
-									
-									String webpage_content = dbwrapper.getWebPage(url.getUrl());
-									
-									if(webpage_content != null){
-										Document doc = Jsoup.parse(webpage_content);
-										Elements links = doc.select("a[href]");
-			
-										for( Element link : links  ){
-			
-											//String abs_url = url.getUrl() + link.attr("href");
-											String abs_url = url.getBaseUrl() + link.attr("href");
-			
-											//for(Attribute a : link.attributes()){
-											//	System.out.println("key: " + a.getKey() + " value: " + a.getValue());
-											//}
-			
-											//System.out.println("link extracted: " + abs_url);
-											//System.out.println("link element: " + link.toString());
-											frontier_Q.add(new URLInfo(abs_url));
-			
-										}
-									}
-									else{
-										System.out.println("Could not retrieve webpage content from database!");
-									}
-								}
-							}
-							else if( code.compareTo("200") == 0 ){
-
-								if( isURLValid(response.m_headers) == true ){
-
-									if( url.getUrl().endsWith(".xml") ){ // just get the contents of an .xml file
-										
-										String webpage_content;
-
-										if ( ( webpage_content = dbwrapper.getWebPage(url.getUrl()) ) != null  ){ // check if we have the page in the database, first.
-											System.out.println( url.getUrl() + " in the database ");
-										}
-										else{
-
-											int delay = hostRobotsMap.get(host).getCrawlDelay(getUserAgent());
-											if ( delay != 0  ){ // it was set, delay next request by specified time.
-
-												// Note: to make it more efficient, could just keep track of last queried time and 
-												//   just re-enqueue. If the next time we get a URL for the same host, we just check
-												//   if the current time is after the delay interval.
-												//System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
-												Thread.sleep(delay*1000);
-											}
 
 
-											//System.out.println("Downloading an .xml file!");
+								ResponseTuple response = HTTPResponseParser.parseResponse("HEAD", in);
 
-											// get new connection to send GET?
-											if(ssl == true){
-												try {
-													URL url_ssl = new URL(url.getUrl()); 
+								String code = response.m_headers.get("status-code").get(0);
 
-													HttpsURLConnection con = (HttpsURLConnection)url_ssl.openConnection();
-													con.setDoOutput (true);
-													con.setRequestProperty("Host", url.getHostName());
-													con.setRequestMethod("GET");
-													con.addRequestProperty("User-Agent", "cis455crawler");
-													con.addRequestProperty("Connection", "close");
-													
-													System.out.println( url.getUrl() + ": Downloading");
-													con.connect();
+								if(code.compareTo("304") == 0){ // not modified 
+									//do nothing, no need to put back into the seen urls list
+									//System.out.println("HEAD request failed with code: " + code + "File has not been modified");
+									System.out.println( url.getUrl() + ": Not Modified");
 
-													in  = con.getInputStream();
-													//out = con.getOutputStream();
+									// dont retrieve it again if its an xml doc, but probably re-extract the links of a html file
+									if( !url.getUrl().endsWith(".xml") ){
 
-												} catch (MalformedURLException e) {
+										String webpage_content = dbwrapper.getWebPage(url.getUrl());
 
-													e.printStackTrace();
-													continue;
-
-												} catch (IOException e) {
-
-													e.printStackTrace();
-													continue;
-
-												}
-											} else{
-												
-												// get new connection to send GET?
-												InetAddress address = InetAddress.getByName(url.getHostName());
-												Socket connection = new Socket(address, url.getPortNo());
-
-												out = connection.getOutputStream();
-												in = connection.getInputStream();
-												
-												System.out.println( url.getUrl() + ": Downloading");
-												sendGet(out, url);
-											}
-
-
-											response = HTTPResponseParser.parseResponse("GET", in);
-
-											code = response.m_headers.get("status-code").get(0);
-
-											if( code.compareTo("200") == 0 ){
-
-												//System.out.println("BODY of file for url: " + url.getUrl());
-												//System.out.println("Body number of bytes: " + response.m_body.length());
-												// update the data in the database.
-												if( dbwrapper.containsWebPage(response.m_body) == true){
-													System.out.println( url.getUrl() + ": Content Seen");
-												}
-												else{
-													dbwrapper.putWebPage(url.getUrl(), response.m_body);
-												}
-
-											} else{
-												System.out.println("GET request failed with code: " + code);
-											}
-
-											// update the seen list, since this is a url we have not seen before.
-											Date now = Calendar.getInstance().getTime();
-											seenUrls.put(url.getUrl(), now);
-										}
-
-									} 
-									else{ // this is a .html file or just a link to another url, use JSOUP to extract links
-
-										String webpage_content;
-
-										if ( ( webpage_content = dbwrapper.getWebPage(url.getUrl()) ) != null  ){ // check if we have the page in the database, first.
-											System.out.println( url.getUrl() + " in the database ");
-
-										}
-										else{
-											int delay = hostRobotsMap.get(host).getCrawlDelay(getUserAgent());
-											if ( delay != 0  ){ // it was set, delay next request by specified time.
-
-												// Note: to make it more efficient, could just keep track of last queried time and 
-												//   just re-enqueue. If the next time we get a URL for the same host, we just check
-												//   if the current time is after the delay interval.
-												//System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
-												Thread.sleep(delay*1000);
-											}
-
-
-											// get new connection to send GET?
-											if(ssl == true){
-												try {
-													URL url_ssl = new URL(url.getUrl()); 
-
-													HttpsURLConnection con = (HttpsURLConnection)url_ssl.openConnection();
-													con.setDoOutput (true);
-													con.setRequestProperty("Host", url.getHostName());
-													con.setRequestMethod("GET");
-													con.addRequestProperty("User-Agent", "cis455crawler");
-													con.addRequestProperty("Connection", "close");
-													
-													System.out.println( url.getUrl() + ": Downloading");
-													con.connect();
-
-													in  = con.getInputStream();
-													//out = con.getOutputStream();
-
-												} catch (MalformedURLException e) {
-
-													e.printStackTrace();
-													continue;
-
-												} catch (IOException e) {
-
-													e.printStackTrace();
-													continue;
-
-												}
-											} else{
-												
-												// get new connection to send GET?
-												InetAddress address = InetAddress.getByName(url.getHostName());
-												Socket connection = new Socket(address, url.getPortNo());
-
-												out = connection.getOutputStream();
-												in = connection.getInputStream();
-												
-												System.out.println( url.getUrl() + ": Downloading");
-												sendGet(out, url);
-											}
-
-											response = HTTPResponseParser.parseResponse("GET", in);
-
-											code = response.m_headers.get("status-code").get(0);
-
-											if( code.compareTo("200") == 0 ){
-												webpage_content = response.m_body;
-
-												// store the page in database.
-												if( dbwrapper.containsWebPage(response.m_body) == true){
-													System.out.println( url.getUrl() + ": Content Seen");
-													
-													// skip the extracting
-													webpage_content = null;
-												}
-												else{
-													dbwrapper.putWebPage(url.getUrl(), webpage_content);
-												}
-											}else{
-												System.out.println("GET request failed with code: " + code);
-												webpage_content = null;
-											}
-										}
-
-										if( webpage_content != null ){
-
-											//System.out.println("BODY of file for url: " + url.getUrl());
-											//System.out.println("Body number of bytes: " + response.m_body.length());
-
-											//System.out.println("Extracting links from a html file!");
-
-											//Document doc = Jsoup.connect(url.getUrl()).get();
-											//System.out.println("BODY: " + response.m_body);
-
+										if(webpage_content != null){
 											Document doc = Jsoup.parse(webpage_content);
 											Elements links = doc.select("a[href]");
 
@@ -1036,34 +1304,190 @@ public class XPathCrawler {
 												//String abs_url = url.getUrl() + link.attr("href");
 												String abs_url = url.getBaseUrl() + link.attr("href");
 
-												//for(Attribute a : link.attributes()     ){
+												//for(Attribute a : link.attributes()){
 												//	System.out.println("key: " + a.getKey() + " value: " + a.getValue());
 												//}
 
 												//System.out.println("link extracted: " + abs_url);
-												URLInfo info = new URLInfo(abs_url);
-												frontier_Q.add(info);
+												//System.out.println("link element: " + link.toString());
+												frontier_Q.add(new URLInfo(abs_url));
 
 											}
-
-										} else{
-											//System.out.println("Could not extract links. webpage content is null... " );
 										}
-
-										//System.out.println(" Whole doc body?: \n"+ doc.toString());
-
-										Date now = Calendar.getInstance().getTime();
-										seenUrls.put(url.getUrl(), now);
-
+										else{
+											System.out.println("Could not retrieve webpage content from database!");
+										}
 									}
 								}
-								else{// fails a mime-type or size requirement
-									System.out.println( url.getUrl() + ": Not Downloading");
+								else if( code.compareTo("200") == 0 ){
+
+									if( isURLValid(response.m_headers) == true ){
+
+										if( url.getUrl().endsWith(".xml") ){ // just get the contents of an .xml file
+
+											String webpage_content;
+
+											if ( ( webpage_content = dbwrapper.getWebPage(url.getUrl()) ) != null  ){ // check if we have the page in the database, first.
+												System.out.println( url.getUrl() + ": Content Seen");
+											}
+											else{
+
+												delay = hostRobotsMap.get(host).getCrawlDelay(getUserAgent());
+												if ( delay != 0  ){ // it was set, delay next request by specified time.
+
+													// Note: to make it more efficient, could just keep track of last queried time and 
+													//   just re-enqueue. If the next time we get a URL for the same host, we just check
+													//   if the current time is after the delay interval.
+													//System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
+													Thread.sleep(delay*1000);
+												}
+
+
+												//System.out.println("Downloading an .xml file!");
+
+												
+
+												// get new connection to send GET?
+												address = InetAddress.getByName(url.getHostName());
+												connection = new Socket(address, url.getPortNo());
+
+												out = connection.getOutputStream();
+												in = connection.getInputStream();
+
+												System.out.println( url.getUrl() + ": Downloading");
+												sendGet(out, url);
+												
+
+
+												response = HTTPResponseParser.parseResponse("GET", in);
+
+												code = response.m_headers.get("status-code").get(0);
+
+												if( code.compareTo("200") == 0 ){
+
+													//System.out.println("BODY of file for url: " + url.getUrl());
+													//System.out.println("Body number of bytes: " + response.m_body.length());
+													// update the data in the database.
+													if( dbwrapper.containsWebPage(response.m_body) == true){
+														//System.out.println( url.getUrl() + ": Content Seen");
+													}
+													else{
+														dbwrapper.putWebPage(url.getUrl(), response.m_body);
+													}
+
+												} else{
+													System.out.println("GET request failed with code: " + code);
+												}
+
+												// update the seen list, since this is a url we have not seen before.
+												Date now = Calendar.getInstance().getTime();
+												seenUrls.put(url.getUrl(), now);
+											}
+
+										} 
+										else{ // this is a .html file or just a link to another url, use JSOUP to extract links
+
+											String webpage_content;
+
+											if ( ( webpage_content = dbwrapper.getWebPage(url.getUrl()) ) != null  ){ // check if we have the page in the database, first.
+												System.out.println( url.getUrl() + ": Content Seen");
+
+											}
+											else{
+												delay = hostRobotsMap.get(host).getCrawlDelay(getUserAgent());
+												if ( delay != 0  ){ // it was set, delay next request by specified time.
+
+													// Note: to make it more efficient, could just keep track of last queried time and 
+													//   just re-enqueue. If the next time we get a URL for the same host, we just check
+													//   if the current time is after the delay interval.
+													//System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
+													Thread.sleep(delay*1000);
+												}
+
+
+												// get new connection to send GET?
+												address = InetAddress.getByName(url.getHostName());
+												connection = new Socket(address, url.getPortNo());
+
+												out = connection.getOutputStream();
+												in = connection.getInputStream();
+
+												System.out.println( url.getUrl() + ": Downloading");
+												sendGet(out, url);
+
+
+												response = HTTPResponseParser.parseResponse("GET", in);
+
+												code = response.m_headers.get("status-code").get(0);
+
+												if( code.compareTo("200") == 0 ){
+													webpage_content = response.m_body;
+
+													// store the page in database.
+													if( dbwrapper.containsWebPage(response.m_body) == true){
+														//System.out.println( url.getUrl() + ": Content Seen");
+
+														// skip the extracting
+														webpage_content = null;
+													}
+													else{
+														dbwrapper.putWebPage(url.getUrl(), webpage_content);
+													}
+												}else{
+													System.out.println("GET request failed with code: " + code);
+													webpage_content = null;
+												}
+											}
+
+											if( webpage_content != null ){
+
+												//System.out.println("BODY of file for url: " + url.getUrl());
+												//System.out.println("Body number of bytes: " + response.m_body.length());
+
+												//System.out.println("Extracting links from a html file!");
+
+												//Document doc = Jsoup.connect(url.getUrl()).get();
+												//System.out.println("BODY: " + response.m_body);
+
+												Document doc = Jsoup.parse(webpage_content);
+												Elements links = doc.select("a[href]");
+
+												for( Element link : links  ){
+
+													//String abs_url = url.getUrl() + link.attr("href");
+													String abs_url = url.getBaseUrl() + link.attr("href");
+
+													//for(Attribute a : link.attributes()     ){
+													//	System.out.println("key: " + a.getKey() + " value: " + a.getValue());
+													//}
+
+													//System.out.println("link extracted: " + abs_url);
+													URLInfo info = new URLInfo(abs_url);
+													frontier_Q.add(info);
+
+												}
+
+											} else{
+												//System.out.println("Could not extract links. webpage content is null... " );
+											}
+
+											//System.out.println(" Whole doc body?: \n"+ doc.toString());
+
+											Date now = Calendar.getInstance().getTime();
+											seenUrls.put(url.getUrl(), now);
+
+										}
+									}
+									else{// fails a mime-type or size requirement
+										System.out.println( url.getUrl() + ": Not Downloading");
+									}
+
+								} else{ // HEAD request failed...
+									System.out.println("HEAD request failed with code: "+ code);
 								}
 
-							} else{ // HEAD request failed...
-								System.out.println("HEAD request failed with code: "+ code);
 							}
+
 
 						} else{
 							//System.out.println("This url is disallowed, Doing nothing");
@@ -1075,30 +1499,31 @@ public class XPathCrawler {
 
 
 					}else{ // have not seen this host before, need to get the robots.txt file.
-						
+
 						RobotsTxtInfo robotTxt = null;
 						String robotTxtContent;
-						
+
 						String roboturl = url.getUrl()+"robots.txt";
-						
+						//System.out.println("robot: " + roboturl);
+
 						//System.out.println("We haven't seen this host before: " + host);
 						if ( ( robotTxtContent = dbwrapper.getWebPage(roboturl) ) != null  ){ // check if we have the page in the database, first.
-							System.out.println( url.getHostName() + " robots.txt file in the database ");
-							
+							System.out.println( url.getHostName() + "/robots.txt: Content Seen");
+
 							RobotParser parser = new RobotParser();
 							robotTxt = parser.parseRobotString(robotTxtContent);
-							 
 							
+
 							hostRobotsMap.put(host, robotTxt);
 						}
-						else{
-							
+						else{ // retreive the text file.
+
 							// Send a Head request to check if file has been modified.
 							boolean ssl = false;
 							if(url.getUrl().startsWith("https:")){
-								
+
 								ssl = true;
-								
+
 								try {
 									URL url_ssl = new URL(roboturl); 
 
@@ -1108,16 +1533,38 @@ public class XPathCrawler {
 									con.setRequestMethod("GET");
 									con.addRequestProperty("User-Agent", "cis455crawler");
 									con.addRequestProperty("Connection", "close");
-									
+
 									System.out.println( url.getUrl() + "robots.txt: Downloading");
 									con.connect();
 
 									in  = con.getInputStream();
-									
+
 									String robotBody = robotParser.parseRobotResponseSSL(in);
+									
+									System.out.println("robot.txt body: " + robotBody);
 									
 									RobotParser parser = new RobotParser();
 									robotTxt = parser.parseRobotString(robotBody);
+									
+									String code = String.valueOf(con.getResponseCode());
+									
+									//System.out.println("robot.txt response code: " + code);
+									
+									if( code.compareTo("200") == 0 ){
+
+										// insert the robots file for this host.
+										hostRobotsMap.put(host, robotTxt);
+
+										//store file in database
+										dbwrapper.putWebPage(roboturl, robotBody);
+
+									}
+									else{ // no robots.txt file?? I guess use defaults....?
+
+										System.out.println("Robots.txt GET request failed with code: " + code);
+
+									}
+									
 
 								} catch (MalformedURLException e) {
 
@@ -1130,7 +1577,7 @@ public class XPathCrawler {
 									continue;
 
 								}
-										
+
 							} else {
 								// Send a Head request to check if file has been modified.
 								InetAddress address = InetAddress.getByName(url.getHostName());
@@ -1139,48 +1586,57 @@ public class XPathCrawler {
 
 								out = connection.getOutputStream();
 								in = connection.getInputStream();
-								
+
 								System.out.println( url.getUrl() + "robots.txt: Downloading");
 								sendGetRobots(out, url);
-								
+
 								RobotTuple response = robotParser.parseRobotResponse(in); 
 
 								String code = response.m_headers.get("status-code").get(0);
-								
+
 								if( code.compareTo("200") == 0 ){
-									
+
 									String robot_content = response.getRobotText();
 									RobotParser rparser = new RobotParser();
-									
+
 									robotTxt = rparser.parseRobotString(robot_content);
-									
+
 									// insert the robots file for this host.
 									hostRobotsMap.put(host, robotTxt);
-									
+
 									//store file in database
 									dbwrapper.putWebPage(roboturl, robot_content);
-									
+
 								}
 								else{ // no robots.txt file?? I guess use defaults....?
 
 									System.out.println("Robots.txt GET request failed with code: " + code);
 
 								}
-								
+
 							}
 
 						}
-						
-						if(robotTxt != null){
 
+						if(robotTxt != null){
 
 							List<String> disallowedLinks = robotTxt.getDisallowedLinks(getUserAgent());
 							List<String> defaultDisallowed = hostRobotsMap.get(host).getDisallowedLinks("*");
 
 							// add default disallowed links to the set
-							for( String link  : defaultDisallowed ){
-								if( !disallowedLinks.contains(link) ){
-									disallowedLinks.add(link);
+							if( disallowedLinks == null ){ // nothing for this user agent
+								if(defaultDisallowed == null){
+									disallowedLinks = null;
+								}else{ // just use the default
+									//System.out.println("Using default links");
+									disallowedLinks = defaultDisallowed;
+								}
+							}else{// add to existing
+								
+								for( String link  : defaultDisallowed ){
+									if( !disallowedLinks.contains(link) ){
+										disallowedLinks.add(link);
+									}
 								}
 							}
 
@@ -1193,6 +1649,7 @@ public class XPathCrawler {
 							if( disallowedLinks != null){
 
 								String filepath = url.getFilePath();
+								//System.out.println("url: " + url.getUrl() + " filepath: " + filepath);
 
 								for(String path  : disallowedLinks ){
 
@@ -1225,7 +1682,7 @@ public class XPathCrawler {
 								//System.out.println("This url is allowed, adding it into the QUEUE");
 								frontier_Q.add(url);
 							}
-							
+
 						}
 
 					}
@@ -1268,14 +1725,14 @@ public class XPathCrawler {
 			crawler.setMaxSize(maxSize);
 			crawler.setUserAgent("cis455crawler");
 			crawler.enqueueURL(new URLInfo(startUrl));
-			
+
 			// optional number of pages
 			if( argv.length == 4 ){
 				int numPages = Integer.valueOf(argv[3]);
 				crawler.setMaxPages(numPages);
 			}
-			
-			
+
+
 			crawler.run();
 
 			System.out.println("Done Crawling");
@@ -1283,7 +1740,7 @@ public class XPathCrawler {
 
 		}
 
-		
+
 	}
 
 }

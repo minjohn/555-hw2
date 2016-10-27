@@ -63,7 +63,7 @@ public class RobotParser {
 
 				if( header.compareTo("user-agent") == 0  ){ // the current user-agent. 
 					userAgent = value.trim();
-					System.out.println("Got User agent: " + userAgent);
+					//System.out.println("Got User agent: " + userAgent);
 					robots.addUserAgent(userAgent);
 				} else if ( header.compareTo("disallow")  == 0 ){
 
@@ -71,7 +71,7 @@ public class RobotParser {
 						// no userAgent to associate this header to.
 
 					}else{
-						System.out.println("Adding Disallow " + value);
+						//System.out.println("Adding Disallow " + value);
 						robots.addDisallowedLink(userAgent, value);
 					}
 
@@ -81,7 +81,7 @@ public class RobotParser {
 						// no userAgent to associate this header to.
 
 					}else{
-						System.out.println("Adding Allow " + value);
+						//System.out.println("Adding Allow " + value);
 						robots.addAllowedLink(userAgent, value);
 					}
 
@@ -91,10 +91,24 @@ public class RobotParser {
 						// no userAgent to associate this header to.
 
 					}else{
-						System.out.println("Adding crawl delay " + value);
+						//System.out.println("Adding crawl delay " + value);
 						robots.addCrawlDelay(userAgent, Integer.valueOf(value));
 					}
+				} else if ( header.compareTo("sitemap")  == 0){
+					if( userAgent.compareTo("") == 0 ){
+						// no userAgent to associate this header to.
+
+					}else{
+						//split on ':' splits the url, re-split
+						parts = nextLine.split("\\s+");
+						
+						//System.out.println("Adding sitemap" + parts[1]);
+						// all sitemaps refer to the host of this robots.txt file.s
+						robots.addSitemapLink(parts[1]);
+					}
 				}
+				
+				
 			}
 		}
 

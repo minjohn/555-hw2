@@ -8,7 +8,7 @@
    <display-name>Channel Subscription Servlets</display-name>
    <context-param>
      <param-name>BDBstore</param-name>
-     <param-value>/home/cis555/workspace/555-hw2/DATABASE</param-value>
+     <param-value>./stevenhw</param-value>
    </context-param>
     
    <servlet>

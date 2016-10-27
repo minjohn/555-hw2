@@ -1,24 +1,32 @@
-Full name:  ______________
-SEAS login: ______________
+Full name:  __Steven Hwang
+SEAS login: __stevenhw
 
 Which features did you implement? 
   (list features, or write 'Entire assignment')
+  
+     Entire assignment
 
 Did you complete any extra-credit tasks? If so, which ones?
   (list extra-credit tasks)
+  
+  for Crawler, if content has been seen before, it will output message "<url>: Content Seen" and not store it
+     in the database under a different url.
 
 Any special instructions for building and running your solution?
   (include detailed instructions, or write 'None')
 
+   I included jetty-runner in the .zip file at the same level as the servlet.jar. 
+     Calling "ant servlet" should run it"
+
 Did you personally write _all_ the code you are submitting
 (other than code from the course web page)?
-  [ ] Yes
+  [x ] Yes
   [ ] No
 
 Did you copy any code from the Internet, or from classmates?
   [ ] Yes
-  [ ] No
+  [ x] No
 
 Did you collaborate with anyone on this assignment?
   [ ] Yes
-  [ ] No
+  [ x] No

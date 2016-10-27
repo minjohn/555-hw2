@@ -17,13 +17,23 @@ public class URLInfo {
 		if(docURL == null || docURL.equals(""))
 			return;
 		docURL = docURL.trim();
-		if(!docURL.startsWith("http://") || docURL.length() < 8)
+		
+		if( !( docURL.startsWith("http://") || docURL.startsWith("https://") ) || docURL.length() < 8){
+			//System.out.println("Failed");
 			return;
+		}
 		// Stripping off 'http://'
-		docURL = docURL.substring(7);
+		if(docURL.startsWith("http://")){
+			docURL = docURL.substring(7);
+		}
+		else if(docURL.startsWith("https://")){
+			docURL = docURL.substring(8);
+		}
 		/*If starting with 'www.' , stripping that off too
 		if(docURL.startsWith("www."))
 			docURL = docURL.substring(4);*/
+		
+		//System.out.println("docURL: " + docURL);
 		int i = 0;
 		while(i < docURL.length()){
 			char c = docURL.charAt(i);
