@@ -18,13 +18,21 @@ public class RegexTest {
 		
 		assertEquals(test2.matches("contains[(].*[)]")   , true );
 		
-		String test3 = " /bear/cat//dog/cow";
+//		String test3 = " /bear/cat//dog/cow";
+//		
+//		String[] stuff = test3.split("[(//)(/)]");
+//		
+//		for( String s  : stuff ){
+//			System.out.println(s);
+//		}
 		
-		String[] stuff = test3.split("[(//)(/)]");
+		String valid = "f";
 		
-		for( String s  : stuff ){
-			System.out.println(s);
-		}
+		assertEquals(valid.matches("[^a-zA-Z0-9_-]"), false  );
+		
+		String invalid = "a";
+		
+		assertEquals(invalid.matches("[^@a-zA-Z0-9_-]"), true );
 		
 		//assertEquals(test2.matches("contains[(].*[)]")   , true );
 		

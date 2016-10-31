@@ -9,6 +9,10 @@ public class XPathEngineImpl implements XPathEngine {
 
 	String [] xpaths;
 	boolean [] validXPath;
+	
+	String cur_symbol;
+	String expression;
+	int pos;
 	//String axis = "/";
 	
 	public XPathEngineImpl() {
@@ -23,114 +27,406 @@ public class XPathEngineImpl implements XPathEngine {
 	}
 	
 	
-
-	// we detected a predicate, "next" is a string with the first bracket stripped.
-	public boolean checkTest(String next){
+	public boolean isValidNodeCharacter(String c){
 		
-//		int bracket = 0;
-//		String test = next.trim();
-//		
-//		if( test.startsWith("text()")  ){
-//			
-//			 String [] parts = test.split("=");
-//			 
-//			 if(parts.length == 2){ // must be exactly two, else its malformed.
-//				 
-//				 String value = parts[1].trim(); // get rid or ignore whitespace.
-//				 
-//				 if( value.matches("\".*\"")   ){ // must be a quoted string
-//					 return true;
-//				 }else{
-//					 return false;
-//				 }
-//				 
-//			 }else{
-//				 return false;
-//			 }
-//			
-//		} else if( test.startsWith("contains(") ){
-//			
-//			int index = test.indexOf("contains(");
-//			String inner = test.substring(index).trim(); // get rid of any whitespace inside the contains test.
-//			
-//			if( inner.startsWith("text()") ){ // must start with text()
-//				String [] parts = test.split(",");
-//				
-//				 if(parts.length != 2){ // must be exactly two, else its malformed.
-//					
-//					 String value = parts[1].trim(); 
-//					 
-//					 if( value.matches("\".*\"")   ){ // must be a quoted string
-//						 
-//						 
-//						 
-//						 return true;
-//					 }else{
-//						 return false;
-//					 }
-//					 
-//					 
-//				 }else{
-//					 return false;
-//				 }
-//				
-//			}else{
-//				 // didn't start with text() invalid...
-//				 return false;
-//				 
-//			}
-//			
-//		} else if( test.startsWith("@") ){
-//			
-//		} else if( ( bracket = test.indexOf("[") ) != -1   ){
-//			
-//			// check everything before bracket is alphabetical.
-//			if( test.substring(0, bracket).matches("[a-zA-Z]+") && checkStep(test.substring(bracket)) == true ){
-//				return true;
-//			}else{
-//				return false;
-//			}
-//		}	
+		if( Character.isLetterOrDigit(c.charAt(0)) 
+				|| c.compareTo("-") == 0 
+				|| c.compareTo("_") == 0 ){
+			return true;
+		}
+		return false;
+		
+	}
+	
+	public boolean isValidEnclosingCharacter(String c){
+		
+		if(  c.compareTo("]") == 0 	|| c.compareTo(")") == 0 ){
+			return true;
+		}
+		return false;
+		
 	}
 	
 	
-	public boolean checkStep(String next){
+	// just shifts the pointer forward to skip whitespace.
+	public void moduloWhitespace(){
+		while ( pos < expression.length() && Character.isWhitespace(expression.substring(pos, pos+1).charAt(0)) ){
+			pos++;
+		}
+	}
+	
+	public boolean checkTextEquals(){
 		
-		// step is nodename { test }
-//		int bracket = 0;
-//		if ( ( bracket = next.indexOf("[") ) != -1  ){ // is there a predicate?
-//			
-//			String nodename = next.substring(0, bracket);
-//			
-//			if ( nodename.length() == 0 ){ // possible invalid, there was no node name.
-//				return false;
+		// initialized to false, to test the condition that there is a closing quote character later.
+		boolean isValid = false;
+		
+		moduloWhitespace();
+				
+		if(expression.substring(pos,pos+1).compareTo("=") != 0 ){
+			return false;
+		} 
+		
+		pos++;
+		
+		moduloWhitespace();
+		
+		if(expression.substring(pos,pos+1).compareTo("\"") != 0){
+			return false;
+		}
+		
+		pos++;
+		
+		while(pos < expression.length()  ){
+			
+			String c = expression.substring(pos,pos+1);
+			
+			if( c.compareTo("\"") == 0  ){ // got the terminating quote, don't need to continue.
+				pos++;
+				isValid = true;
+				break;
+			}
+			
+			pos++;
+		}
+		
+		
+		return isValid;
+		
+	}
+	
+	public boolean checkContains(){
+		
+		// initialized to false, to test the condition that there is a closing quote character later.
+		boolean isValid = false; 
+		
+		// ignore any leading whitespace prior to the "text" element
+		moduloWhitespace();
+		
+		if( expression.substring(pos).startsWith("text()") == false  ){
+			return false;
+		}
+		
+		pos = pos + "text()".length();
+		moduloWhitespace();
+		
+		if( expression.substring(pos, pos+1).compareTo(",") != 0 ){
+			return false;
+		}
+		
+		pos++;
+		
+		moduloWhitespace();
+		
+		if( expression.substring(pos, pos+1).compareTo("\"") != 0 ){
+			return false;
+		}
+		
+		pos++;
+		
+		while(pos < expression.length()  ){
+
+			String c = expression.substring(pos,pos+1);
+
+			if( c.compareTo("\"") == 0  ){ // got the terminating quote, don't need to continue.
+				pos++;
+				isValid = true;
+				break;
+			}
+
+			pos++;
+		}
+		
+		moduloWhitespace();
+		
+		// get the ending parentheses
+		if( expression.substring(pos, pos+1).compareTo(")") != 0 ){
+			return false;
+		}
+		
+		pos++;
+		
+		return isValid;
+		
+	}
+	
+	public boolean checkAttribute(){
+		
+		// initialized to false, to test the condition that there is a closing quote character later.
+		boolean isValid = false;
+		boolean equals = false;
+		
+		String next = expression.substring(pos,pos+1);
+		
+		
+		if( isValidNodeCharacter(next) == false ){ // must be a valid character for attribute name.
+			return false;
+		}
+		
+		pos++;
+		
+		while( pos < expression.length() ){
+
+			String c = expression.substring(pos,pos+1);
+
+			if( expression.substring(pos, pos+1).compareTo("=") == 0 ){ // got the terminating quote, don't need to continue.
+				pos++;
+				equals = true;
+				break;
+			} 
+			else if( Character.isWhitespace(c.charAt(0)) ){
+				// iterate and ignore whitespace before equals
+				moduloWhitespace();
+				break; // pos is now pointing first character that is not a space.
+			}
+			else if( isValidNodeCharacter(c) == false ){ //only these characters allowed in the step element name, cant have a second @ either
+				return false;
+			} 
+
+			pos++;
+		}
+		
+		// check if we did not catch the '=' symbol in the string, we must have at least an equals...
+		if( pos == expression.length()){
+			return false;
+		}
+		
+		if(equals == false){
+			
+			if(expression.substring(pos, pos+1).compareTo("=") != 0){
+				return false;
+			}
+			
+		}
+		
+		// after the equals ignore any whitespace
+		moduloWhitespace();
+		
+		if( expression.substring(pos, pos+1).compareTo("\"") != 0 ){
+			return false;
+		}
+		
+		pos++;
+		
+		while( pos < expression.length()  ){
+
+			String c = expression.substring(pos,pos+1);
+
+			if( c.compareTo("\"") == 0  ){ // got the terminating quote, don't need to continue.
+				pos++;
+				isValid = true;
+				break;
+			}
+
+			pos++;
+		}
+		
+		return isValid;
+		
+		
+	}
+	
+
+	// we detected a predicate, "next" is a string with the first bracket stripped.
+	public boolean checkTest(boolean insideTest){
+		
+		boolean isValid = true;
+		
+		// there is an asumption that opening bracket in this function is always true, since that is the only way we call it...
+		boolean openingBracket = true;
+		// ignore any leading whitespace.
+		moduloWhitespace();
+		
+		// after modulo whitespace, first thing that must follow is a alphabetical, underscore, numerical character or @ for attributes
+		String first = expression.substring(pos, pos+1);
+		
+		if( isValidNodeCharacter(first) == false && first.compareTo("@") != 0  ){ // there must be an invalid symbol or bracket start without element name?
+			return false;
+		}
+		
+		String element = expression.substring(pos);
+		
+		// shortcut? check if the following valid "tests" are included?
+		if( element.startsWith("text()")   ){
+			pos = pos + "text()".length();
+			if(checkTextEquals() == false){
+				return false;
+			} else {
+				return true;
+			}
+		}
+		else if (element.startsWith("contains(") ){
+			pos = pos + "contains(".length();
+			if(checkContains() == false){
+				return false;
+			} else {
+				return true;
+			}
+		} 
+		else if (element.startsWith("@")){ // attribute
+			pos++;
+			if(checkAttribute() == false){
+				return false;
+			} else {
+				return true;
+			}
+		}
+		
+		
+		// after tests finish, ""'s can have  white space afterwards.
+		moduloWhitespace();
+		
+		
+		while( pos < expression.length() ) { // rest of the characters
+			
+			String c = expression.substring(pos,pos+1);
+			
+			if(c.compareTo("[") == 0){
+				pos++;
+				if( (isValid = checkTest(true)) == false ){ // something failed.. trickle up failure and stop processing
+					break;
+				}
+				
+				openingBracket = true;
+				moduloWhitespace(); // ignore any whitespace after the test predicate body.
+				continue;
+			}
+			else if( c.compareTo("/") == 0 ){	
+				pos++;
+				if( (isValid = checkStep(true)) == false ){ // something failed.. trickle up failure and stop processing
+					break;
+				}
+				continue;
+			}
+//			else if( isValidEnclosingCharacter(c) ){ // there can be whitespace after a closing bracket
+//				
+//				
+//				// this test predicate is directly on a step.
+//				if(insideTest == false){
+//					return true;
+//				} else if ( insideTest == true ){
+//					
+//					//pos++;
+//					//// must have had a previous opening bracket at this level, otherwise, this is an unmatched opening bracket.
+//					//if( openingBracket == false ){
+//					//	return false;
+//					//}
+//					
+//					
+//					//if(pos <= expression.length()){
+//					//	moduloWhitespace();
+//					//	openingBracket = false;
+//					//	continue;
+//					//}
+//						
+//				}	
 //			}
-//			
-//			// strip the first bracket, and recursively check the contents of the predicate, the ending bracket will be 
-//			//   checked recursively in the checkTest function.
-//			if( checkTest( next.substring(bracket)) == true ){ 
-//				return true;
+			else if( isValidNodeCharacter(c) == false ){ //only these characters allowed in the step element name, cant have a second @ either
+				return false;
+			}
+			
+			pos++;
+		}
+		
+		return isValid;
+
+	}
+	
+	// because of the way we iterate one character at a time through the xpath expression, steps defined within the brackets of 
+	//   a test will eventually read the bracket. Because a closing bracket is only relevant to the level where the opening
+	//   bracket was, we will ignore closing brackets when a step is inside a test bracket and just return.
+	/*
+	 * Rules:  - if not in a test predicate bracket and we run across a closing bracket without an openig bracket, this is a stray
+	 *         - if we are in a test predicate bracket and we run across a closing bracket, just return true, we were valid until the bracket. 
+	 */	
+	public boolean checkStep(boolean insideTest){
+		 
+		boolean isValid = true;
+		boolean openingBracket = false;
+		
+		// after slash the first thing that must follow is a alphabetical, underscore, numerical character for nodename
+		String first = expression.substring(pos, pos+1);
+
+		if( isValidNodeCharacter(first) == false){ 
+			// there must be an invalid symbol or bracket start without element name.
+			return false;
+		}
+
+		
+		while( pos < expression.length() ){
+			
+			String c = expression.substring(pos, pos+1);
+			
+			if( c.compareTo("[") == 0 ){ // a test predicate
+				pos++;
+				if( (isValid = checkTest(false)) == false ){ // something failed.. trickle up failure and stop processing
+					//break;
+					
+				}
+				
+				moduloWhitespace(); // ignore any whitespace after the test predicate body.
+				
+				//expect closing bracket here
+				
+				//openingBracket = true;
+				
+				continue;
+			}
+			else if ( c.compareTo("/") == 0){ // another step
+				pos++;
+				if( (isValid = checkStep(false) ) == false){ // something failed.. trickle up failure and stop processing
+					break;
+				}
+				continue;
+			}
+//			else if( isValidEnclosingCharacter(c) ){ // there can be whitespace after a closing bracketpos++;
+//				
+//				
+//				// must have had a previous opening bracket at this level, otherwise, this is an unmatched opening bracket.
+//				if( insideTest == false && openingBracket == false ){
+//					return false;
+//				}
+//				else if(insideTest == true) { // flow back up to previous level
+//					return true;
+//				}
+//				
+//				// insideTest == false and openingBracket == true, its relevant at this level?
+//				pos++;
+//				
+//				if(pos <= expression.length()){
+//					moduloWhitespace();
+//					
+//					openingBracket = false;
+//					
+//					continue;
+//				}
+//				
 //			}
-//			
-//		} 
-//		
-//		else if (next.indexOf("/") != -1 ) { // is there a next step?
-//			
-//		} 
-//		
-//		// last step in path? ; nodename should only have characters, no symbols. 
-//		else if ( next.matches("[a-zA-Z]+") ) { 
-//			return true;
-//		} 
-//		
-//		else{
-//			return false;
-//		}
+			//else if( isValidNodeCharacter(c) == false  && isValidEnclosingCharacter(c) == false ){
+			else if( isValidNodeCharacter(c) == false ){ //check for invalid step element name characters
+				
+				//isValid = false;
+				//break;
+				return false;
+			}
+			
+			
+			pos++; // move position pointer by 1
+		}
 		
+		return isValid; // for things that are just characters (case 1): ... /abc
 		
+	}
+	
+	public boolean checkAxis(){
 		
-		
-		
+		if( expression.charAt(pos) == '/' ){
+			
+			pos++;
+			//return checkStep();
+			return checkStep(false);
+		} else {
+			return false;
+		}
 		
 	}
 	
@@ -138,35 +434,11 @@ public class XPathEngineImpl implements XPathEngine {
 	public boolean isValid(int i) {
 		/* TODO: Check which of the XPath expressions are valid */
 		
-//		if( xpaths[i].compareTo("/") == 0 || xpaths[i].compareTo("//") == 0 ){ // invalid
-//			
-//			validXPath[i] = false;
-//			
-//		} else if( xpaths[i].charAt(0) == '/' ){
-//			
-//			// valid so far.
-//			
-//			String nextStep = xpaths[i].substring(1);
-//			
-//			if(checkStep(nextStep) == true){
-//				validXPath[i] = true;
-//			}else{
-//				validXPath[i] = false;
-//			}
-//
-//		} 
-//		else{
-//			// invalid 
-//			validXPath[i] = false;
-//		}
+		pos = 0;
+		expression = xpaths[i].trim();
+		boolean valid = checkAxis();
 		
-		checkStep(xpaths[i]);
-		
-		
-		
-		
-
-		return false;
+		return valid;
 	}
 
 	public boolean[] evaluate(Document d) { 
