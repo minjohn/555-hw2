@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import org.apache.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -12,23 +13,28 @@ import org.jsoup.select.Elements;
 import edu.upenn.cis.stormlite.OutputFieldsDeclarer;
 import edu.upenn.cis.stormlite.TopologyContext;
 import edu.upenn.cis.stormlite.routers.IStreamRouter;
+import edu.upenn.cis.stormlite.spout.URLSpout;
 import edu.upenn.cis.stormlite.tuple.Fields;
 import edu.upenn.cis.stormlite.tuple.Tuple;
 import edu.upenn.cis455.crawler.info.URLInfo;
 
 public class UrlExtractorBolt implements IRichBolt {
 	
+	static Logger log = Logger.getLogger(UrlExtractorBolt.class);
+	
 	// instance variables
-	LinkedBlockingQueue<URLInfo> frontier_Q;
+	private static LinkedBlockingQueue<URLInfo> frontier_Q;
 	
 	String executorId = UUID.randomUUID().toString();
 	
 	// constructor
-	public UrlExtractorBolt( LinkedBlockingQueue<URLInfo> queue ){
+	public void setQueue ( LinkedBlockingQueue<URLInfo> queue ){
 		this.frontier_Q = queue;
 	}
 	
-	
+	public UrlExtractorBolt(  ){
+		
+	}
 	@Override
 	public String getExecutorId() {
 		return executorId;
@@ -65,6 +71,9 @@ public class UrlExtractorBolt implements IRichBolt {
 
 			//System.out.println("link extracted: " + abs_url);
 			//System.out.println("link element: " + link.toString());
+			
+			//log.info("extracted URL: " + abs_url);
+			
 			frontier_Q.add(new URLInfo(abs_url));
 
 		}			

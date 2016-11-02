@@ -6,11 +6,14 @@ import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
 
+import org.apache.log4j.Logger;
+
 import com.sleepycat.je.DatabaseException;
 
 import edu.upenn.cis.stormlite.OutputFieldsDeclarer;
 import edu.upenn.cis.stormlite.TopologyContext;
 import edu.upenn.cis.stormlite.routers.IStreamRouter;
+import edu.upenn.cis.stormlite.spout.URLSpout;
 import edu.upenn.cis.stormlite.tuple.Fields;
 import edu.upenn.cis.stormlite.tuple.Tuple;
 import edu.upenn.cis.stormlite.tuple.Values;
@@ -18,6 +21,8 @@ import edu.upenn.cis455.storage.DBWrapper;
 import edu.upenn.cis455.storage.DBWrapperFactory;
 
 public class DocumentBolt implements IRichBolt {
+	
+	static Logger log = Logger.getLogger(DocumentBolt.class);
 	
 	//Instance variables
 	DBWrapper db;
@@ -28,9 +33,12 @@ public class DocumentBolt implements IRichBolt {
 	
 	String executorId = UUID.randomUUID().toString();
 	
-	//public DocumentBolt( WebsiteRecord webrecord ){
+	public void setWebsiteRecord(WebsiteRecord webrecord){
+		this.webrecord = webrecord;
+	}
+	
 	public DocumentBolt(){
-		//this.webrecord = webrecord;
+		
 	}
 	
 	@Override
@@ -71,9 +79,10 @@ public class DocumentBolt implements IRichBolt {
 			db.putWebPage(documentUri, documentBody);
 			
 			// update the timestamp for this document in seenURLs doc. for the Head requests
-			synchronized(webrecord){
+			
+			synchronized( webrecord.seenUrls ){
 				Date now = Calendar.getInstance().getTime();
-				WebsiteRecord.seenUrls.put(documentUri, now);
+				webrecord.seenUrls.put(documentUri, now);
 			}
 			
 		}

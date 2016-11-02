@@ -28,6 +28,9 @@ public class CrawlerRequester {
 		this.maxSize = max;
 	}
 	
+	public void setDBWrapper(DBWrapper dbwrapper){
+		this.dbwrapper = dbwrapper;
+	}
 	
 	public void sendHead(OutputStream out, URLInfo info, boolean seen){
 

@@ -427,6 +427,7 @@ public class DBWrapper {
 	public void close() throws DatabaseException {
 		store.close();
 		webpage_store.close();
+		channel_store.close();
 		myEnv.close();
 		
 		

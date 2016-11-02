@@ -13,6 +13,7 @@ import edu.upenn.cis.stormlite.bolt.UrlExtractorBolt;
 import edu.upenn.cis.stormlite.bolt.WebsiteRecord;
 import edu.upenn.cis.stormlite.example.TestWordCount;
 import edu.upenn.cis.stormlite.spout.URLSpout;
+import edu.upenn.cis.stormlite.tuple.Fields;
 import edu.upenn.cis455.crawler.info.URLInfo;
 import edu.upenn.cis455.storage.DBWrapper;
 
@@ -48,25 +49,37 @@ public class StormCrawler {
 			
 			// shared URL Frontier Queue
 			LinkedBlockingQueue<URLInfo> frontier_Q = new LinkedBlockingQueue<URLInfo>();
-			//WebsiteRecord webrecord = new WebsiteRecord();
+			
+			// put starting url in queue
+			URLInfo start = new URLInfo(startUrl);
+			frontier_Q.add(start);
+			
+			
+			WebsiteRecord webrecord = new WebsiteRecord();
 
 			// setup the topology
 			TopologyBuilder builder = new TopologyBuilder();
 			
-			URLSpout urlspout = new URLSpout(frontier_Q);
-			//FetchBolt fetch = new FetchBolt(webrecord);
+			URLSpout urlspout = new URLSpout();
+			urlspout.setQueue(frontier_Q);
+			
+			
 			FetchBolt fetch = new FetchBolt();
-			//DocumentBolt documentstore = new DocumentBolt(webrecord);
-			DocumentBolt documentstore = new DocumentBolt();
-			UrlExtractorBolt urlextractor = new UrlExtractorBolt(frontier_Q);
+			fetch.setWebsiteRecord(webrecord);
+			
+			DocumentBolt documentBolt = new DocumentBolt();
+			documentBolt.setWebsiteRecord(webrecord);
+			
+			UrlExtractorBolt urlextractor = new UrlExtractorBolt();
+			urlextractor.setQueue(frontier_Q);
 			
 			//spout
 			builder.setSpout(URL_SPOUT, urlspout, 1);
 			
 			// bolts
-			builder.setBolt(FETCH_BOLT, fetch, 1);
-			builder.setBolt(DOCUMENT_BOLT, documentstore, 1);
-			builder.setBolt(URLEXTRACTOR_BOLT, urlextractor, 1);
+			builder.setBolt(FETCH_BOLT, fetch, 1).shuffleGrouping(URL_SPOUT);
+			builder.setBolt(DOCUMENT_BOLT, documentBolt, 1).shuffleGrouping(FETCH_BOLT);
+			builder.setBolt(URLEXTRACTOR_BOLT, urlextractor, 1).shuffleGrouping(DOCUMENT_BOLT);
 			
 	        Topology topo = builder.createTopology();
 
@@ -84,14 +97,18 @@ public class StormCrawler {
 			/* submit topology to cluster to begin running. */
 			LocalCluster cluster = new LocalCluster();
 			
+			//cluster.quit
 			cluster.submitTopology("storm-crawler", config, 
 		        		builder.createTopology());
-		    Thread.sleep(30000);
-		    cluster.killTopology("test");
-		    cluster.shutdown();
 		    
-		    log.debug("Done crawling...");
-		    System.exit(0);
+			while(true){
+				Thread.sleep(30000);
+			}
+//		    cluster.killTopology("test");
+//		    cluster.shutdown();
+//		    
+//		    log.debug("Done crawling...");
+//		    System.exit(0);
 			
 		}
 	}
