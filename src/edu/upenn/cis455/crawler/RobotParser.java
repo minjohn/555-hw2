@@ -14,7 +14,7 @@ import edu.upenn.cis455.crawler.info.RobotsTxtInfo;
 
 public class RobotParser {
 
-	class RobotTuple { 
+	public class RobotTuple { 
 		  public final HashMap<String, List<String>> m_headers; 
 		  
 		  //public final RobotsTxtInfo m_robot; 

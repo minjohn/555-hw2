@@ -19,18 +19,12 @@ import javax.servlet.http.Cookie;
 
 import org.apache.log4j.Logger;
 
+import edu.upenn.cis455.crawler.info.ResponseTuple;
 import edu.upenn.cis455.crawler.info.RobotsTxtInfo;
 
 
 
-class ResponseTuple { 
-	  public final HashMap<String, List<String>> m_headers; 
-	  public final String m_body; 
-	  public ResponseTuple(HashMap<String, List<String>> headers, String body) { 
-	    this.m_body = body; 
-	    this.m_headers = headers; 
-	  } 
-} 
+
 
 
 public class HTTPResponseParser {

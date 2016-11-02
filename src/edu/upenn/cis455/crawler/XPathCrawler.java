@@ -31,6 +31,7 @@ import javax.net.ssl.SSLPeerUnverifiedException;
 import java.security.cert.Certificate;
 
 import edu.upenn.cis455.crawler.RobotParser.RobotTuple;
+import edu.upenn.cis455.crawler.info.ResponseTuple;
 import edu.upenn.cis455.crawler.info.RobotsTxtInfo;
 import edu.upenn.cis455.crawler.info.URLInfo;
 import edu.upenn.cis455.storage.DBWrapper;

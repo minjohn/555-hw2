@@ -8,8 +8,10 @@
     <property name="build.target.dir" location="${project.root}${file.separator}target"/>
     <property name="web-inf.dir" location="${build.target.dir}${file.separator}WEB-INF"/>
     <property name="classes.dir"     location="${web-inf.dir}${file.separator}classes"/>
+	<!--<property name="storm-classes.dir"     location="${web-inf.dir}${file.separator}classes${file.separator}stormlite"/>-->
     <property name="web-inf.lib.dir" location="${web-inf.dir}${file.separator}lib"/>
     <property name="test-classes.dir" location="${build.target.dir}${file.separator}test${file.separator}classes"/>
+	<property name="storm-test-classes.dir" location="${build.target.dir}${file.separator}test${file.separator}classes${file.separator}test{file.separator}edu{file.separator}upenn{file.separator}cis"/>
     <property name="test-lib.dir"     location="${build.target.dir}${file.separator}test${file.separator}lib"/>
     <property name="src.main.dir"  location="${build.dir}${file.separator}src${file.separator}"/>
     <property name="inputlib.dir"  location="${shared.root}${file.separator}lib"/>
@@ -67,10 +69,22 @@
             </classpath>
         </javac>
     </target>
+	
+	<!--<target name="compile-stormlite"  description="Compiles the stormlite classes">
+	   <mkdir dir="${storm-classes.dir}"/>
+	   <javac srcdir="${src.storm.test.dir}${file.separator}" destdir="${storm-classes.dir}" debug="on" deprecation="off" optimize="on" includeAntRuntime="no">
+	       <classpath>
+	           <fileset dir="${inputlib.dir}">
+	                <include name="*.jar"/>
+	           </fileset>
+	       </classpath>
+	   </javac>
+	</target>-->
+	
     
     <target name="compile-stormlite-tests" description="compiles test Java source code">
-      <mkdir dir="${test-classes.dir}"/>
-      <javac srcdir="${src.storm.test.dir}${file.separator}" destdir="${test-classes.dir}" debug="on" deprecation="off" optimize="on" includeAntRuntime="no">
+      <mkdir dir="${storm-test-classes.dir}"/>
+      <javac srcdir="${src.storm.test.dir}${file.separator}" destdir="${storm-test-classes.dir}" debug="on" deprecation="off" optimize="on" includeAntRuntime="no">
 	    <classpath>
 	     <pathelement path="${classes.dir}" />
 	      <fileset dir="${inputlib.dir}">
@@ -79,6 +93,22 @@
 	    </classpath>
       </javac>
     </target>
+	
+	<target name="stormlite-test-jar" depends="compile-stormlite-tests" description="Makes the JAR file for the stormlite test">
+		        <delete file="stormlite-test.jar"/>
+		        <jar destfile="stormlite-test.jar" update="true">
+		        	<manifest>
+		        	      <attribute name="Main-Class" value="edu.upenn.cis.stormlite.example.TestWordCount"/>
+					</manifest>
+		            <fileset dir="${storm-test-classes.dir}">
+		                <include name="**/*.class"/>
+		            </fileset>
+		        	<fileset dir="${classes.dir}">
+		        	    <include name="**/*.class"/>
+		        	</fileset>
+		        </jar>
+	</target>
+	
 	
 	<target name="compile-servlet-storage-tests" description="compiles test Java source code">
 	      <mkdir dir="${test-classes.dir}"/>
@@ -92,7 +122,9 @@
 	      </javac>
 	    </target>
 	
-    
+	
+	
+	
     <!--<target name="test" depends="compile-tests,compile-crawler,compile-servlet" description="Run tests">-->
     <target name="test" depends="compile-servlet-storage-tests,compile-crawler,compile-servlet" description="Run tests">
       <java failonerror="true" fork="true" classname="junit.textui.TestRunner">
@@ -168,6 +200,9 @@
 
     <target name="build" depends="crawler-jar,servlet-war">
     </target>
+	
+	<target name="build-test" depends="compile-servlet-storage-tests, compile-stormlite-tests">
+	</target>
 
     <target name="pack" description="Create an archive for submission">
       <zip destfile="submit-hw2.zip">

@@ -120,7 +120,7 @@ public class XPathEngineTest {
 		assertEquals(xEngine.isValid(0), true);
 		
 		// valid case, spaces in all places for contains
-		String[] expressions16 =  { "/xyz/abc[  contains(  text()   ,   \"someSubstring\" )  ])" };
+		String[] expressions16 =  { "/xyz/abc[  contains(  text()   ,   \"someSubstring\" )  ]" };
 
 		xEngine.setXPaths(expressions16);
 
@@ -128,14 +128,14 @@ public class XPathEngineTest {
 		
 		
 		// invalid case, missing comma for contains
-		String[] expressions17 =  { "/xyz/abc[  contains(  text()      \"someSubstring\" )  ])" };
+		String[] expressions17 =  { "/xyz/abc[  contains(  text()      \"someSubstring\" )  ]" };
 
 		xEngine.setXPaths(expressions17);
 
 		assertEquals(xEngine.isValid(0), false);
 		
 		// valid case, spaces in all places for contains
-		String[] expressions18 =  { "/xyz/abc[  contains(  text()   ,   \"someSubstring\" )  ]  )" };
+		String[] expressions18 =  { "/xyz/abc[  contains(  text()   ,   \"someSubstring\" )  ]  " };
 
 		xEngine.setXPaths(expressions18);
 
@@ -143,7 +143,7 @@ public class XPathEngineTest {
 		
 		
 		// valid case, spaces in all places for contains
-		String[] expressions19 =  { "/xyz/abc[  contains(  text() ,     \"someSubstring\" )  ]  )   " };
+		String[] expressions19 =  { "/xyz/abc[  contains(  text() ,     \"someSubstring\" )  ]     " };
 
 		xEngine.setXPaths(expressions19);
 
@@ -158,7 +158,7 @@ public class XPathEngineTest {
 		assertEquals(xEngine.isValid(0), false);
 		
 		// invalid case, duplicate equals sign contains
-		String[] expressions21 =  { "/xyz/abc[  contains(  text()  ,, \"someSubstring\" )  ])" };
+		String[] expressions21 =  { "/xyz/abc[  contains(  text()  ,, \"someSubstring\" )  ]" };
 
 		xEngine.setXPaths(expressions21);
 
@@ -231,6 +231,47 @@ public class XPathEngineTest {
 		xEngine.setXPaths(expressions30);
 
 		assertEquals(xEngine.isValid(0), false);
+		
+		
+		// more valid spaces cases
+		String[] expressions31 =  { "/d/e/f[foo[ text ( )  =\"$omet4i^g\"]][bar]" };
+
+		xEngine.setXPaths(expressions31);
+
+		assertEquals(xEngine.isValid(0), true);
+		
+		
+		String[] expressions32 =  { "/d/e/f[ text ( )  =\"$omet4i^g\"][bar]" };
+
+		xEngine.setXPaths(expressions32);
+
+		assertEquals(xEngine.isValid(0), true);
+		
+		
+		String[] expressions33 =  { "/xyz/abc[  contains (  text()  , \"someSubstring\" )  ][boo]" };
+
+		xEngine.setXPaths(expressions33);
+
+		assertEquals(xEngine.isValid(0), true);
+		
+		
+		String[] expressions34 =  { "/this/that[something/else[ more[ stuff[inside][this] ] ]]" };
+		
+		xEngine.setXPaths(expressions34);
+		
+		assertEquals(xEngine.isValid(0), true);
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
 		
 		
 		

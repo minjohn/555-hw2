@@ -85,7 +85,7 @@ public class LocalCluster implements Runnable {
 		createRoutes(topo, config);
 		
 		// Put the run method in a background thread
-		new Thread(this).start();;
+		new Thread(this).start();
 	}
 	
 	public void run() {
@@ -177,6 +177,7 @@ public class LocalCluster implements Runnable {
 		for (String stream: topo.getBolts().keySet()) {
 			BoltDeclarer decl = topo.getBoltDeclarer(stream);
 			
+			// get the router assigned to this bolt.
 			IStreamRouter router = decl.getRouter();
 			
 			for (IRichBolt bolt: boltStreams.get(stream)) {
@@ -184,7 +185,7 @@ public class LocalCluster implements Runnable {
 				log.debug("Adding a route from " + decl.getStream() + " to " + bolt);
 			}
 			
-			if (topo.getBolts().containsKey(decl.getStream())) {
+			if (topo.getBolts().containsKey(decl.getStream())) { // this stream is not a bolt, its a spout
 				for (IRichBolt bolt: boltStreams.get(decl.getStream())) {
 					bolt.setRouter(router);
 					bolt.declareOutputFields(router);
