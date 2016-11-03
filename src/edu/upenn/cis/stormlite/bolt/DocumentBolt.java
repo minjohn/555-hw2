@@ -25,9 +25,9 @@ public class DocumentBolt implements IRichBolt {
 	static Logger log = Logger.getLogger(DocumentBolt.class);
 	
 	//Instance variables
-	DBWrapper db;
+	private static DBWrapper db;
+	private static WebsiteRecord webrecord;
 	OutputCollector collector;
-	WebsiteRecord webrecord;
 	Fields schema = new Fields("documentUri", "documentBody");
 	
 	
@@ -66,13 +66,17 @@ public class DocumentBolt implements IRichBolt {
 		//  If we do, then don't emit 
 		//  If we don't, then store and emit
 		
+		//log.info("got document for url " + documentUri);
+		
 		if( db.containsWebPage(documentBody) == true){
-			// do nothing
+			// dont store, just pass along
+			Values vals = new Values(documentUri, documentBody);
+			collector.emit(vals);
+			
 		} else{
 			
 			// emit for url-extracting in the UrlExtractorBolt
 			Values vals = new Values(documentUri, documentBody);
-			
 			collector.emit(vals);
 			
 			//store the document in db.

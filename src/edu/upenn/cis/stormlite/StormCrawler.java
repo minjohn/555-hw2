@@ -62,9 +62,10 @@ public class StormCrawler {
 			
 			URLSpout urlspout = new URLSpout();
 			urlspout.setQueue(frontier_Q);
-			
+			urlspout.setWebsiteRecord(webrecord);
 			
 			FetchBolt fetch = new FetchBolt();
+			fetch.setQueue(frontier_Q);
 			fetch.setWebsiteRecord(webrecord);
 			
 			DocumentBolt documentBolt = new DocumentBolt();

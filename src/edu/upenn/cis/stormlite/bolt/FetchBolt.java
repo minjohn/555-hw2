@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import org.apache.log4j.Logger;
 import org.jsoup.Jsoup;
@@ -43,8 +44,9 @@ public class FetchBolt implements IRichBolt{
 	
 	
 	private OutputCollector collector;
-	DBWrapper dbwrapper;
-	WebsiteRecord webrecord;
+	private static DBWrapper dbwrapper;
+	private static WebsiteRecord webrecord;
+	private static LinkedBlockingQueue<URLInfo> urlQueue;
 	Fields schema = new Fields("documentUri", "documentBody");
 	Map<String, String> config;
 	CrawlerRequester requester = new CrawlerRequester();
@@ -53,6 +55,10 @@ public class FetchBolt implements IRichBolt{
 
 	public void setWebsiteRecord(WebsiteRecord webrecord){
 		this.webrecord = webrecord;
+	}
+	
+	public void setQueue(LinkedBlockingQueue<URLInfo> urlQueue){
+		this.urlQueue = urlQueue;
 	}
 	
 	// constructor
@@ -148,15 +154,15 @@ public class FetchBolt implements IRichBolt{
 					if(disallowedUrl == false){ // we are allowed to query this url
 
 						// get crawl delay before sending followup GET request.
-						RobotsTxtInfo robotTxt = hostRobotsMap.get(host);
+						//RobotsTxtInfo robotTxt = hostRobotsMap.get(host);
 						// get by useragent, hardcoded
-						int delay = 0;
-						delay = robotTxt.getCrawlDelay(userAgent);
+						//int delay = 0;
+						//delay = robotTxt.getCrawlDelay(userAgent);
 
-						if ( delay != 0  ){ // it was set, delay next request by specified time.
+						//if ( delay != 0  ){ // it was set, delay next request by specified time.
 							//System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
-							Thread.sleep(delay*1000);
-						}
+						//	Thread.sleep(delay*1000);
+						//}
 
 
 						if(url.getUrl().startsWith("https:")){
@@ -210,14 +216,14 @@ public class FetchBolt implements IRichBolt{
 											System.out.println( url.getUrl() + ": Content Seen");
 										}else{
 											// wait crawl delay before sending followup GET request, if it was set.
-											if ( delay != 0  ){ // it was set, delay next request by specified time.
+											//if ( delay != 0  ){ // it was set, delay next request by specified time.
 
 												// Note: to make it more efficient, could just keep track of last queried time and 
 												//   just re-enqueue. If the next time we get a URL for the same host, we just check
 												//   if the current time is after the delay interval.
 												//System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
-												Thread.sleep(delay*1000);
-											}
+											//	Thread.sleep(delay*1000);
+											//}
 
 											// get new connection to send GET?
 											address = InetAddress.getByName(url.getHostName());
@@ -235,17 +241,21 @@ public class FetchBolt implements IRichBolt{
 
 												Values vals = new Values(url.getUrl(), response.m_body);
 												collector.emit(vals);
-
+												
+												
+												
 											}else {
 												System.out.println("GET request failed with code: " + code);
 											}
 
 											// update the seen list time, since the file was valid (it was modified), so a fresh 
 											//   copy of this url must have a modified date after this one.
-											synchronized( webrecord.seenUrls ){
+											synchronized( webrecord ){
 												Date now = Calendar.getInstance().getTime();
 												webrecord.seenUrls.put(url.getUrl(), now);
+												webrecord.hostLastAccessed.put(url.getHostName(), now);
 											}
+											
 
 										}
 									}
@@ -258,14 +268,14 @@ public class FetchBolt implements IRichBolt{
 										}else{ // not in the database, retreive that webpage.
 
 											// wait crawl delay before sending followup GET request, if it was set.
-											if ( delay != 0  ){ // it was set, delay next request by specified time.
+											//if ( delay != 0  ){ // it was set, delay next request by specified time.
 
 												// Note: to make it more efficient, could just keep track of last queried time and 
 												//   just re-enqueue. If the next time we get a URL for the same host, we just check
 												//   if the current time is after the delay interval.
-												System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
-												Thread.sleep(delay*1000);
-											}
+											//	System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
+											//	Thread.sleep(delay*1000);
+											//}
 
 											// get new connection to send GET?
 											address = InetAddress.getByName(url.getHostName());
@@ -295,6 +305,12 @@ public class FetchBolt implements IRichBolt{
 									}
 
 									// update the seen list time, since the file was valid (it was modified), so a fresh 
+									
+									synchronized( webrecord ){
+										Date now = Calendar.getInstance().getTime();
+										webrecord.seenUrls.put(url.getUrl(), now);
+										webrecord.hostLastAccessed.put(url.getHostName(), now);
+									}
 								}
 								else{ // fails a mime-type or size requirement
 									System.out.println( url.getUrl() + ": Not Downloading");
@@ -379,15 +395,15 @@ public class FetchBolt implements IRichBolt{
 						} else { // handle http separately
 
 							// check the crawl-delay and wait 
-							int delay = hostRobotsMap.get(host).getCrawlDelay(userAgent);
+							//int delay = hostRobotsMap.get(host).getCrawlDelay(userAgent);
 
-							if (delay != 0 ){
+							///if (delay != 0 ){
 								// Note: to make it more efficient, could just keep track of last queried time and 
 								//   just re-enqueue. If the next time we get a URL for the same host, we just check
 								//   if the current time is after the delay interval.
 								//System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
-								Thread.sleep(delay*1000);
-							}
+							//	Thread.sleep(delay*1000);
+							//}
 
 							// Send a Head request to check if file has been modified.
 							InetAddress address = InetAddress.getByName(url.getHostName());
@@ -419,15 +435,15 @@ public class FetchBolt implements IRichBolt{
 										else{
 
 
-											delay = hostRobotsMap.get(host).getCrawlDelay(userAgent);
-											if ( delay != 0  ){ // it was set, delay next request by specified time.
+											//delay = hostRobotsMap.get(host).getCrawlDelay(userAgent);
+											//if ( delay != 0  ){ // it was set, delay next request by specified time.
 
 												// Note: to make it more efficient, could just keep track of last queried time and 
 												//   just re-enqueue. If the next time we get a URL for the same host, we just check
 												//   if the current time is after the delay interval.
 												//System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
-												Thread.sleep(delay*1000);
-											}
+											//	Thread.sleep(delay*1000);
+											//}
 
 											// get new connection to send GET?
 											address = InetAddress.getByName(url.getHostName());
@@ -451,9 +467,10 @@ public class FetchBolt implements IRichBolt{
 											}
 
 											// update the seen list, since this is a url we have not seen before.
-											synchronized( webrecord.seenUrls ){
+											synchronized( webrecord ){
 												Date now = Calendar.getInstance().getTime();
 												webrecord.seenUrls.put(url.getUrl(), now);
+												webrecord.hostLastAccessed.put(url.getHostName(), now);
 											}
 
 										}
@@ -469,15 +486,15 @@ public class FetchBolt implements IRichBolt{
 										else{
 
 
-											delay = hostRobotsMap.get(host).getCrawlDelay(userAgent);
-											if ( delay != 0  ){ // it was set, delay next request by specified time.
+											//delay = hostRobotsMap.get(host).getCrawlDelay(userAgent);
+											//if ( delay != 0  ){ // it was set, delay next request by specified time.
 
 												// Note: to make it more efficient, could just keep track of last queried time and 
 												//   just re-enqueue. If the next time we get a URL for the same host, we just check
 												//   if the current time is after the delay interval.
 												//System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
-												Thread.sleep(delay*1000);
-											}
+											//	Thread.sleep(delay*1000);
+											//}
 
 
 											// get new connection to send GET?
@@ -505,9 +522,10 @@ public class FetchBolt implements IRichBolt{
 										}
 
 										// update the seen list, since this is a url we have not seen before.
-										synchronized( webrecord.seenUrls ){
+										synchronized( webrecord ){
 											Date now = Calendar.getInstance().getTime();
 											webrecord.seenUrls.put(url.getUrl(), now);
+											webrecord.hostLastAccessed.put(url.getHostName(), now);
 										}
 
 									}
@@ -525,9 +543,10 @@ public class FetchBolt implements IRichBolt{
 						// disallowed, do nothing. but add to seen list.
 						System.out.println( url.getUrl() + ": Restricted. Not downloading");
 						// disallowed, do nothing. but add to seen list.
-						synchronized( webrecord.seenUrls ){
+						synchronized( webrecord ){
 							Date now = Calendar.getInstance().getTime();
 							webrecord.seenUrls.put(url.getUrl(), now);
+							webrecord.hostLastAccessed.put(url.getHostName(), now);
 						}
 					}
 
@@ -644,15 +663,15 @@ public class FetchBolt implements IRichBolt{
 								// allowed, add it again and the portion of code that handles "Seen Host" will send the HEAD request.
 
 								// probably want to do a second Get request to get actual url content
-								int delay = hostRobotsMap.get(host).getCrawlDelay(userAgent);
-								if ( delay != 0  ){ // it was set, delay next request by specified time.
+								//int delay = hostRobotsMap.get(host).getCrawlDelay(userAgent);
+								//if ( delay != 0  ){ // it was set, delay next request by specified time.
 
 									// Note: to make it more efficient, could just keep track of last queried time and 
 									//   just re-enqueue. If the next time we get a URL for the same host, we just check
 									//   if the current time is after the delay interval.
 									//System.out.println("Crawler delay was specified for this UserAgent, sleeping...");
-									Thread.sleep(delay*1000);
-								}
+									//Thread.sleep(delay*1000);
+								//}
 
 
 								// get new connection to send GET?
@@ -679,9 +698,10 @@ public class FetchBolt implements IRichBolt{
 								}
 
 								//   copy of this url must have a modified date after this one.
-								synchronized( webrecord.seenUrls ){
+								synchronized( webrecord ){
 									Date now = Calendar.getInstance().getTime();
 									webrecord.seenUrls.put(url.getUrl(), now);
+									webrecord.hostLastAccessed.put(url.getHostName(), now);
 								}
 
 							}
@@ -712,9 +732,10 @@ public class FetchBolt implements IRichBolt{
 							}
 
 							//   copy of this url must have a modified date after this one.
-							synchronized( webrecord.seenUrls ){
+							synchronized( webrecord ){
 								Date now = Calendar.getInstance().getTime();
 								webrecord.seenUrls.put(url.getUrl(), now);
+								webrecord.hostLastAccessed.put(url.getHostName(), now);
 							}
 
 						}

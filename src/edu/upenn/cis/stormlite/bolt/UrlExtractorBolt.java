@@ -60,6 +60,7 @@ public class UrlExtractorBolt implements IRichBolt {
 		Document doc = Jsoup.parse(documentBody);
 		Elements links = doc.select("a[href]");
 
+		//log.info("Extracting links from " + documentUri);
 		for( Element link : links  ){
 
 			//String abs_url = url.getUrl() + link.attr("href");

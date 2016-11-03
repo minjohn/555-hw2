@@ -75,7 +75,7 @@ public class TestWordCount {
         
         cluster.submitTopology("test", config, 
         		builder.createTopology());
-        Thread.sleep(100);
+        //Thread.sleep(100);
         cluster.killTopology("test");
         cluster.shutdown();
         System.exit(0);

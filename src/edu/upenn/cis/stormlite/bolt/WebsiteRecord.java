@@ -14,6 +14,7 @@ import edu.upenn.cis455.crawler.info.RobotsTxtInfo;
 public class WebsiteRecord {
 	
 	public static HashMap<String, Date> seenUrls = new HashMap<String, Date>(); // url and last time we requested it.
+	public static HashMap<String, Date> hostLastAccessed = new HashMap<String, Date>(); // url and last time we requested it.
 	public static HashMap<String, RobotsTxtInfo> hostRobotsMap = new HashMap<String, RobotsTxtInfo>();
 	
 	// for acceptable file types
