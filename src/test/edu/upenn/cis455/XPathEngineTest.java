@@ -2,15 +2,63 @@ package test.edu.upenn.cis455;
 
 import static org.junit.Assert.*;
 
+import java.io.File;
+import java.io.IOException;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+
 import org.junit.Test;
+import org.w3c.dom.Document;
+import org.xml.sax.SAXException;
 
 import edu.upenn.cis455.xpathengine.XPathEngine;
 import edu.upenn.cis455.xpathengine.XPathEngineFactory;
 
 public class XPathEngineTest {
-
+	
+	
+	@Test 
+	public void xpathMatchTest(){
+		// TODO
+		
+		XPathEngine xEngine = XPathEngineFactory.getXPathEngine();
+		
+		String[] expressions =  { "/rss/channel/title[contains(text(),\"Sports\")]" };
+		
+		xEngine.setXPaths(expressions);
+		
+		assertEquals(xEngine.isValid(0), true);
+		
+		DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+		DocumentBuilder db;
+		try {
+			db = dbf.newDocumentBuilder();
+			Document doc = db.parse(new File("resources/Sports.xml"));
+			
+			boolean[] match = xEngine.evaluate(doc);
+			
+			assertEquals(match[0], true );
+			
+		} catch (ParserConfigurationException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} catch (SAXException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}		
+		
+		
+	}
+	
+	
+	
 	@Test
-	public void test() {
+	public void ValidationTest() {
 		
 		XPathEngine xEngine = XPathEngineFactory.getXPathEngine();
 		
@@ -261,13 +309,25 @@ public class XPathEngineTest {
 		
 		assertEquals(xEngine.isValid(0), true);
 		
+		String[] expressions35 =  { "/this/that[something/else]/bling" };
+		
+		xEngine.setXPaths(expressions35);
+		
+		assertEquals(xEngine.isValid(0), true);
 		
 		
+		String[] expressions36 =  { "/this/that[something/else]/bling[sing]" };
+		
+		xEngine.setXPaths(expressions36);
+		
+		assertEquals(xEngine.isValid(0), true);
 		
 		
-		
-		
-		
+		String[] expressions37 =  { "/this/that[text()=\"[]\"]/bling[sing]" };
+
+		xEngine.setXPaths(expressions37);
+
+		assertEquals(xEngine.isValid(0), true);
 		
 		
 		

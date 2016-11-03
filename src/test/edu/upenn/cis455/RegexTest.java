@@ -2,6 +2,9 @@ package test.edu.upenn.cis455;
 
 import static org.junit.Assert.*;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import org.junit.Test;
 
 public class RegexTest {
@@ -10,7 +13,7 @@ public class RegexTest {
 	public void test() {
 		
 		String test = "\"this \"";
-		System.out.println(test);
+		//System.out.println(test);
 		
 		assertEquals(test.matches("\"[A-Za-z0-9_\\s\\S]*\"")   , true );
 		
@@ -26,16 +29,32 @@ public class RegexTest {
 //			System.out.println(s);
 //		}
 		
-		String valid = "f";
+//		String valid = "f";
+//		
+//		assertEquals(valid.matches("[^a-zA-Z0-9_-]"), false  );
+//		
+//		String invalid = "a";
+//		
+//		assertEquals(invalid.matches("[^@a-zA-Z0-9_-]"), true );
+//		
+//		//assertEquals(test2.matches("contains[(].*[)]")   , true );
 		
-		assertEquals(valid.matches("[^a-zA-Z0-9_-]"), false  );
 		
-		String invalid = "a";
+		String attribute_test = "@id = '123331'";
+		//System.out.println(attribute_test);
 		
-		assertEquals(invalid.matches("[^@a-zA-Z0-9_-]"), true );
+		//String pattern = "@([a-zA-]+?)\\s+=\\s+'([a-zA-z]+?)'";
+		String pattern ="@(.*?)\\s*=\\s*'(.*?)'";
 		
-		//assertEquals(test2.matches("contains[(].*[)]")   , true );
+		Pattern attribute_pattern = Pattern.compile(pattern);
+		Matcher matcher = attribute_pattern.matcher( attribute_test );
 		
+		matcher.find();
+		
+		String attribute_name = matcher.group(1);
+		String attribute_value = matcher.group(2);
+		
+		System.out.println(" Attribute name: " + attribute_name + " value: " + attribute_value);
 		
 		
 	}

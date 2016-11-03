@@ -7,6 +7,10 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.apache.log4j.Logger;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 
 import com.sleepycat.je.DatabaseException;
 
@@ -17,6 +21,7 @@ import edu.upenn.cis.stormlite.spout.URLSpout;
 import edu.upenn.cis.stormlite.tuple.Fields;
 import edu.upenn.cis.stormlite.tuple.Tuple;
 import edu.upenn.cis.stormlite.tuple.Values;
+import edu.upenn.cis455.crawler.info.URLInfo;
 import edu.upenn.cis455.storage.DBWrapper;
 import edu.upenn.cis455.storage.DBWrapperFactory;
 
@@ -26,16 +31,16 @@ public class DocumentBolt implements IRichBolt {
 	
 	//Instance variables
 	private static DBWrapper db;
-	private static WebsiteRecord webrecord;
+//	private static WebsiteRecord webrecord;
 	OutputCollector collector;
-	Fields schema = new Fields("documentUri", "documentBody");
+	Fields schema = new Fields("EXTRACTED_URL");
 	
 	
 	String executorId = UUID.randomUUID().toString();
 	
-	public void setWebsiteRecord(WebsiteRecord webrecord){
-		this.webrecord = webrecord;
-	}
+//	public void setWebsiteRecord(WebsiteRecord webrecord){
+//		this.webrecord = webrecord;
+//	}
 	
 	public DocumentBolt(){
 		
@@ -68,26 +73,39 @@ public class DocumentBolt implements IRichBolt {
 		
 		//log.info("got document for url " + documentUri);
 		
+		// dont store, just pass along
+		if( ! documentUri.endsWith(".xml") ){ // html file?
+
+			URLInfo url = new URLInfo(documentUri);
+			Document doc = Jsoup.parse(documentBody);
+
+			Elements links = doc.select("a[href]");
+
+			for( Element link : links  ){
+
+				String abs_url = url.getBaseUrl() + link.attr("href");
+
+				Values vals = new Values(abs_url);
+				collector.emit(vals);
+			}
+		} 
+		
+		
 		if( db.containsWebPage(documentBody) == true){
-			// dont store, just pass along
-			Values vals = new Values(documentUri, documentBody);
-			collector.emit(vals);
+			
+			// dont store
+
 			
 		} else{
-			
-			// emit for url-extracting in the UrlExtractorBolt
-			Values vals = new Values(documentUri, documentBody);
-			collector.emit(vals);
-			
+						
 			//store the document in db.
 			db.putWebPage(documentUri, documentBody);
 			
 			// update the timestamp for this document in seenURLs doc. for the Head requests
-			
-			synchronized( webrecord.seenUrls ){
-				Date now = Calendar.getInstance().getTime();
-				webrecord.seenUrls.put(documentUri, now);
-			}
+//			synchronized( webrecord ){
+//				Date now = Calendar.getInstance().getTime();
+//				webrecord.seenUrls.put(documentUri, now);
+//			}
 			
 		}
 		

@@ -76,61 +76,12 @@ public class URLSpout implements IRichSpout{
 
 		while(somethingToEmit == false){
 			
+			//log.info( "size: "+urlQueue.size());
+			
 			URLInfo url  = urlQueue.poll();
 			if(url != null){
-				String url_string = url.getUrl();
-				//log.info("checking " + url.getUrl());
-
-				Date last_accessed = webrecord.hostLastAccessed.get(url.getHostName());
-				RobotsTxtInfo host_robotsTxt = webrecord.hostRobotsMap.get(url.getHostName()); 
-				
-				Date now = Calendar.getInstance().getTime();
-				
-				if( host_robotsTxt == null ){ // no crawl delay for this host, by default, just allow subsequent queries
-
-					this.collector.emit(new Values<Object>(url_string));
-					//log.info(" NO HOSTS ROBOTS " + getExecutorId() + " emitting " + url_string);
-					
-					somethingToEmit = true;
-					
-
-				}else{ // check for the crawl delay
-
-					//log.info(url.getUrl() + "Check the crawl delay... ");
-
-					String userAgent = config.get("UserAgent");
-
-					int host_crawl_delay = host_robotsTxt.getCrawlDelay(userAgent);
-					
-					if(host_crawl_delay != 0){
-
-						Date host_delay = new Date( last_accessed.getTime() + host_crawl_delay * 1000   );
-						
-						if( host_delay.before(now) == true  ){
-							this.collector.emit(new Values<Object>(url_string));
-							//log.info(getExecutorId() + " emitting " + url_string);
-							
-							somethingToEmit = true;
-
-						} else{
-
-							// to respect robots.txt don't query this host now.
-							//log.info("reenqueuing " + url.getUrl());
-							urlQueue.add(url);
-
-						}
-
-					} 
-					else{
-
-						somethingToEmit = true;
-						
-						this.collector.emit(new Values<Object>(url_string));
-						//log.info("NO CRAWL DELAY "+getExecutorId() + " emitting " + url_string);
-						
-					}
-				}
-
+				this.collector.emit(new Values<Object>(url));
+				somethingToEmit = true;
 			}
 		}
 

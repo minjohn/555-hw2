@@ -9,7 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import edu.upenn.cis.stormlite.bolt.FetchBolt;
 import edu.upenn.cis.stormlite.bolt.DocumentBolt;
-import edu.upenn.cis.stormlite.bolt.UrlExtractorBolt;
+import edu.upenn.cis.stormlite.bolt.UrlFilterBolt;
 import edu.upenn.cis.stormlite.bolt.WebsiteRecord;
 import edu.upenn.cis.stormlite.example.TestWordCount;
 import edu.upenn.cis.stormlite.spout.URLSpout;
@@ -24,7 +24,7 @@ public class StormCrawler {
 	private static final String URL_SPOUT = "URL_SPOUT";
 	private static final String FETCH_BOLT = "FETCH_BOLT";
 	private static final String DOCUMENT_BOLT = "DOCUMENT_BOLT";
-	private static final String URLEXTRACTOR_BOLT = "URLEXTRACTOR_BOLT";
+	private static final String URLFILTER_BOLT = "URLFILTER_BOLT";
 
 	public static void main(String[] args) throws Exception {
 
@@ -51,7 +51,7 @@ public class StormCrawler {
 			LinkedBlockingQueue<URLInfo> frontier_Q = new LinkedBlockingQueue<URLInfo>();
 			
 			// put starting url in queue
-			URLInfo start = new URLInfo(startUrl);
+			URLInfo start = new URLInfo(startUrl, "GET");
 			frontier_Q.add(start);
 			
 			
@@ -69,18 +69,24 @@ public class StormCrawler {
 			fetch.setWebsiteRecord(webrecord);
 			
 			DocumentBolt documentBolt = new DocumentBolt();
-			documentBolt.setWebsiteRecord(webrecord);
+			//documentBolt.setWebsiteRecord(webrecord);
 			
-			UrlExtractorBolt urlextractor = new UrlExtractorBolt();
-			urlextractor.setQueue(frontier_Q);
+			UrlFilterBolt urlfilter = new UrlFilterBolt();
+			urlfilter.setQueue(frontier_Q);
+			urlfilter.setWebsiteRecord(webrecord);
 			
 			//spout
 			builder.setSpout(URL_SPOUT, urlspout, 1);
 			
 			// bolts
-			builder.setBolt(FETCH_BOLT, fetch, 1).shuffleGrouping(URL_SPOUT);
-			builder.setBolt(DOCUMENT_BOLT, documentBolt, 1).shuffleGrouping(FETCH_BOLT);
-			builder.setBolt(URLEXTRACTOR_BOLT, urlextractor, 1).shuffleGrouping(DOCUMENT_BOLT);
+//			builder.setBolt(FETCH_BOLT, fetch, 1).shuffleGrouping(URL_SPOUT);
+//			builder.setBolt(DOCUMENT_BOLT, documentBolt, 1).shuffleGrouping(FETCH_BOLT);
+//			builder.setBolt(urlfilter_BOLT, urlfilter, 1).shuffleGrouping(DOCUMENT_BOLT);
+			
+			builder.setBolt(FETCH_BOLT, fetch, 1).fieldsGrouping(URL_SPOUT, new Fields("URL"));
+			builder.setBolt(DOCUMENT_BOLT, documentBolt, 1).fieldsGrouping(FETCH_BOLT, new Fields("documentUri"));
+			builder.setBolt(URLFILTER_BOLT, urlfilter, 1).fieldsGrouping(DOCUMENT_BOLT, new Fields("EXTRACTED_URL"));
+			
 			
 	        Topology topo = builder.createTopology();
 
